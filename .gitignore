@@ -1,0 +1,53 @@
+# Node modules and build output
+/node_modules
+/dist
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Test coverage
+/coverage
+/.nyc_output
+junit.xml
+
+# Environment files
+.env
+.env.local
+
+# Yarn and npm
+.yarn
+.yarnrc
+.npmrc
+.nvmrc
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# OS files
+.DS_Store
+
+# Misc
+openapi.spec.json
+
+# Secrets and credentials
+# Ignore Firebase service account credentials (keep sensitive keys out of version control)
+*firebase-service-account*

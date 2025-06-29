@@ -1,0 +1,15 @@
+volumes:
+  app_db:
+
+services:
+  mysql:
+    hostname: mysql
+    image: mysql:8.0.26
+    platform: linux/amd64
+    ports:
+      - '3306:3306'
+    volumes:
+      - app_db:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=ew_demo
+      - MYSQL_ROOT_PASSWORD=test
