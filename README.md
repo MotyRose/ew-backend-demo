@@ -163,6 +163,49 @@ FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
 - Store the file securely and restrict access to only trusted team members.
 - Rotate the key if you suspect it has been compromised.
 
+### VAPID Keys Configuration
+
+VAPID (Voluntary Application Server Identification) keys are required for Web Push notifications. These keys allow push services to identify your application server and ensure that only your server can send push notifications to your users.
+
+**How to generate VAPID keys:**
+
+1. **Using the web-push library (recommended):**
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+
+2. **Using Firebase CLI:**
+   ```bash
+   firebase login
+   firebase projects:list
+   firebase use <your-project-id>
+   firebase messaging:generate-vapid-key
+   ```
+
+3. **Using the Firebase Console:**
+   - Go to the [Firebase Console](https://console.firebase.google.com/) and select your project
+   - Navigate to **Project Settings** (gear icon) > **Cloud Messaging**
+   - Under the **Web configuration** section, click **Generate key pair**
+   - Copy the generated key pair
+
+**Setting up VAPID keys in your environment:**
+
+```env
+VAPID_SUBJECT=mailto:your-email@example.com
+VAPID_PUBLIC_KEY=your-vapid-public-key
+VAPID_PRIVATE_KEY=your-vapid-private-key
+```
+
+**Important notes:**
+- The `VAPID_SUBJECT` should be a valid email address or URL that identifies your application
+- The public key will be used by client applications to subscribe to push notifications
+- The private key is used by your server to sign push messages
+- **Never expose your VAPID private key** in client-side code or commit it to version control
+- The same VAPID key pair should be used consistently across your application
+
+**Client-side usage:**
+Your web clients will need the public key to register for push notifications. The backend exposes this via the `/api/notifications/vapid-public-key` endpoint.
+
 ## Project Structure
 
 ```
