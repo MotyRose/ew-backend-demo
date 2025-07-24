@@ -1,0 +1,88 @@
+services:
+  # Development Environment
+  - type: web
+    name: ew-demo-dev
+    runtime: docker
+    plan: free
+    branch: dev
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        fromService:
+          type: web
+          name: ew-demo-dev
+          property: port
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ew-demo-dev-db
+          property: connectionString
+      - key: DB_TYPE
+        value: postgres
+      - key: DB_SSL
+        value: "true"
+      - fromGroup: ew-demo-dev-env
+
+  # Sandbox Environment
+  - type: web
+    name: ew-demo-sandbox
+    runtime: docker
+    plan: starter
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        fromService:
+          type: web
+          name: ew-demo-sandbox
+          property: port
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ew-demo-sandbox-db
+          property: connectionString
+      - key: DB_TYPE
+        value: postgres
+      - key: DB_SSL
+        value: "true"
+      - fromGroup: ew-demo-sandbox-env
+
+  # Production Environment
+  - type: web
+    name: ew-demo-prod
+    runtime: docker
+    plan: starter  # Consider paid plan for production
+    branch: main
+    autoDeploy: true  # Consider manual deployment for production
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        fromService:
+          type: web
+          name: ew-demo-prod
+          property: port
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ew-demo-prod-db
+          property: connectionString
+      - key: DB_TYPE
+        value: postgres
+      - key: DB_SSL
+        value: "true"
+      - fromGroup: ew-demo-prod-env
+
+databases:
+  # Development Database
+  - name: ew-demo-dev-db
+    plan: basic-256mb
+    databaseName: ew_demo_dev
+
+  # Sandbox Database
+  - name: ew-demo-sandbox-db
+    plan: basic-256mb
+    databaseName: ew_demo_sandbox
+
+  # Production Database
+  - name: ew-demo-prod-db
+    plan: basic-256mb  # Consider paid plan for production
+    databaseName: ew_demo_prod

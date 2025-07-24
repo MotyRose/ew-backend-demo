@@ -12,14 +12,17 @@ console.log("ENVIRONMENT:", process.env);
 async function initializeApp(): Promise<void> {
   try {
     // Initialize Firebase Admin if credentials are provided
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
       let serviceAccount;
       try {
         serviceAccount = JSON.parse(
-          fs.readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH, "utf8"),
+          process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
         ) as admin.ServiceAccount;
       } catch (e) {
-        logger.error("Invalid Firebase service account JSON", { error: e });
+        logger.error(
+          "Invalid Firebase service account JSON in environment variable",
+          { error: e },
+        );
         throw e;
       }
 
@@ -27,7 +30,27 @@ async function initializeApp(): Promise<void> {
         credential: admin.credential.cert(serviceAccount),
       });
 
-      logger.info("Firebase Admin SDK initialized");
+      logger.info(
+        "Firebase Admin SDK initialized from JSON environment variable",
+      );
+    } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+      let serviceAccount;
+      try {
+        serviceAccount = JSON.parse(
+          fs.readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH, "utf8"),
+        ) as admin.ServiceAccount;
+      } catch (e) {
+        logger.error("Invalid Firebase service account JSON file", {
+          error: e,
+        });
+        throw e;
+      }
+
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+
+      logger.info("Firebase Admin SDK initialized from file");
     } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       // Or use credentials file
       admin.initializeApp({

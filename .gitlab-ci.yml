@@ -1,0 +1,124 @@
+stages:
+  - build
+  - seethelight
+
+variables:
+  SERVICE_NAME: ${CI_PROJECT_NAME}
+  CONTAINER_NAME: ${SERVICE_NAME}
+  IMAGE_TAG: ${CI_COMMIT_SHORT_SHA}
+  IMAGE_PATH: ${CI_REGISTRY_IMAGE}/ci_build/${SERVICE_NAME}
+
+build-image:
+  extends: .build-image-podman
+  rules:
+    - if: "$CI_COMMIT_TAG"
+      when: never
+    - if: "$CI_PIPELINE_SOURCE == 'merge_request_event'"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "main"
+      when: on_success
+      allow_failure: false
+    - if: $CI_COMMIT_BRANCH != "master" && $CI_COMMIT_BRANCH != "main"
+      when: always
+      allow_failure: false
+
+.build-image-podman:
+  retry: 2
+  stage: build
+  image:
+    name: registry.gitlab.com/fireblocks/shell/infra/images/podman-compose:latest
+    entrypoint:
+      - ""
+  tags:
+    - builders-application-gitlab-runner
+  before_script: []
+  needs: []
+  variables:
+    IMAGE_FQDN: "${IMAGE_PATH}:$IMAGE_TAG"
+    IMAGE_FQDN_MAIN: "${IMAGE_PATH}:main"
+    DOCKERFILE_PATH: Dockerfile
+    CACHE_ARGS: "--layers --cache-from ${IMAGE_PATH} --cache-to ${IMAGE_PATH} --cache-ttl=240h\n"
+    IMAGE_LABELS: >
+      --label org.opencontainers.image.revision=${CI_COMMIT_SHA}
+      --label org.opencontainers.image.source=${CI_PROJECT_URL}
+      --label org.opencontainers.image.vendor=$CI_SERVER_URL/$GITLAB_USER_LOGIN
+      --label org.opencontainers.image.authors=$CI_SERVER_URL/$GITLAB_USER_LOGIN
+      --label org.opencontainers.image.documentation=$CI_PROJECT_URL
+      --label org.opencontainers.image.licenses=$CI_PROJECT_URL
+      --label org.opencontainers.image.url=$CI_PROJECT_URL
+      --label vcs-url=$CI_PROJECT_URL
+      --label com.gitlab.ci.user=$CI_SERVER_URL/$GITLAB_USER_LOGIN
+      --label com.gitlab.ci.email=$GITLAB_USER_EMAIL
+      --label com.gitlab.ci.tagorbranch=$CI_COMMIT_REF_NAME
+      --label com.gitlab.ci.pipelineurl=$CI_PIPELINE_URL
+      --label com.gitlab.ci.commiturl=$CI_PROJECT_URL/commit/$CI_COMMIT_SHA
+      --label com.gitlab.ci.cijoburl=$CI_JOB_URL
+      --label com.gitlab.ci.mrurl=$CI_PROJECT_URL/-/merge_requests/$CI_MERGE_REQUEST_ID
+  script:
+    # Set up npm registry authentication
+    - |
+      echo "@fireblocks:registry=https://gitlab.com/api/v4/packages/npm/" > .npmrc
+      echo "//gitlab.com/api/v4/packages/npm/:_authToken=${NPM_REG_TOKEN}" >> .npmrc
+      echo "//gitlab.com/api/v4/projects/20565764/packages/npm/:_authToken=${NPM_REG_TOKEN}" >> .npmrc
+    # Log in to container registry
+    - podman login --username $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    # Build the image
+    - |
+      podman build --format docker \
+        -f ${DOCKERFILE_PATH} \
+        ${CACHE_ARGS} \
+        --secret id=npmrc,src=.npmrc \
+        --build-arg IMAGE_TAG=${IMAGE_TAG} \
+        --build-arg SERVICE_NAME=${SERVICE_NAME} \
+        ${IMAGE_LABELS} \
+        -t ${IMAGE_FQDN} $CI_PROJECT_DIR
+    # Push the image
+    - podman push ${IMAGE_FQDN}
+    # If on main/master, also tag and push as main
+    - |
+      if [ "$CI_COMMIT_BRANCH" == "master" ] || [ "$CI_COMMIT_BRANCH" == "main" ]; then
+        podman tag ${IMAGE_FQDN} ${IMAGE_FQDN_MAIN}
+        podman push ${IMAGE_FQDN_MAIN}
+      fi
+  rules:
+    - if: "$CI_COMMIT_TAG"
+      when: never
+    - if: "$CI_PIPELINE_SOURCE == 'merge_request_event'"
+      when: never
+    - if: $CI_COMMIT_BRANCH == "master" || $CI_COMMIT_BRANCH == "main"
+      when: on_success
+      allow_failure: false
+    - if: $CI_COMMIT_BRANCH != "master" && $CI_COMMIT_BRANCH != "main"
+      when: always
+      allow_failure: false
+
+.deploy_to_lightsail_template:
+  stage: seethelight
+  needs: [build-image]
+  tags:
+    - ew-demo
+  before_script:
+    - aws sts get-caller-identity
+    - chmod +x deployment/scripts/deploy.sh
+  script:
+    - echo "Deploying $IMAGE_TAG to $DEPLOY_ENV"
+    - cd ./deployment/scripts
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    - ./deploy.sh --environment "${DEPLOY_ENV}" --image "registry.gitlab.com/fireblocks/shell/services/ew-demo/ci_build/ew-demo:$IMAGE_TAG"
+  rules:
+    - when: manual
+
+deploy_to_lightsail_dev9:
+  extends: .deploy_to_lightsail_template
+  variables:
+    DEPLOY_ENV: "ew-demo-dev9"
+
+deploy_to_lightsail_sandbox:
+  extends: .deploy_to_lightsail_template
+  variables:
+    DEPLOY_ENV: "ew-demo-sb"
+
+deploy_to_lightsail_prod:
+  extends: .deploy_to_lightsail_template
+  variables:
+    DEPLOY_ENV: "ew-demo-prod"

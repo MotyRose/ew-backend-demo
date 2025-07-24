@@ -1,0 +1,3633 @@
+Directory structure:
+└── fireblocks-ew-backend-demo/
+    ├── README.md
+    ├── build.sh
+    ├── docker-compose.yaml
+    ├── Dockerfile
+    ├── eslint.config.mjs
+    ├── jest.config.cjs
+    ├── LICENSE
+    ├── Makefile
+    ├── package.json
+    ├── tsconfig.json
+    ├── .dockerignore
+    ├── .env.example
+    ├── .lintstagedrc.json
+    ├── .prettieignore
+    ├── .prettierrc.json
+    ├── client/
+    │   ├── README.md
+    │   └── examples/
+    │       ├── react/
+    │       │   └── hooks/
+    │       │       ├── README.md
+    │       │       └── usePushNotifications.ts
+    │       └── web/
+    │           └── worker/
+    │               ├── README.md
+    │               └── firebase-messaging-sw.js
+    ├── src/
+    │   ├── app.ts
+    │   ├── data-source.ts
+    │   ├── server.ts
+    │   ├── controllers/
+    │   │   ├── base.controller.ts
+    │   │   ├── notification.controller.ts
+    │   │   └── webhook.controller.ts
+    │   ├── errors/
+    │   │   └── api.errors.ts
+    │   ├── middleware/
+    │   │   ├── auth.ts
+    │   │   ├── jwt.ts
+    │   │   └── webhook.ts
+    │   ├── migrations/
+    │   │   └── 1746700230000-CreateTables.ts
+    │   ├── model/
+    │   │   ├── device-token.ts
+    │   │   └── web-push-subscription.ts
+    │   ├── routes/
+    │   │   ├── notification.route.ts
+    │   │   └── webhook.route.ts
+    │   ├── services/
+    │   │   └── notification.service.ts
+    │   ├── types/
+    │   │   ├── custom.d.ts
+    │   │   ├── fireblocks.ts
+    │   │   └── express/
+    │   │       └── index.d.ts
+    │   └── util/
+    │       ├── env.ts
+    │       ├── fetch-all.ts
+    │       └── logger.ts
+    └── .husky/
+        └── pre-commit
+
+================================================
+FILE: README.md
+================================================
+# Push Notification System for Embedded Wallet
+
+A demo implementation showcasing push notifications for transaction status updates in Embedded Wallets, replacing the traditional polling-based approach with an efficient push-based model. Each notification is associated with a specific walletId, enabling accurate delivery of transaction updates to the corresponding wallet instance.
+
+## Overview
+
+This backend service enables real-time transaction status notifications across multiple platforms:
+
+- Android (Firebase Cloud Messaging)
+- iOS (Apple Push Notification Service)
+- Web Browsers (FCM / Web Push API with VAPID)
+
+### Key Benefits
+
+- Eliminates constant polling for transaction status
+- Reduces server load and API calls
+- Provides immediate status updates
+- Supports multiple platforms with a unified API
+
+## Architecture
+
+### Components
+
+1. **Client Applications**
+
+   - Register devices for push notifications
+   - Send push tokens to backend during authentication
+   - Handle incoming notifications and trigger UI updates
+
+2. **Backend Server**
+
+   - Manages device tokens and subscriptions
+   - Processes Fireblocks webhooks
+   - Distributes notifications to relevant devices
+   - Handles cross-platform notification delivery
+
+3. **Push Services**
+
+   - Firebase Cloud Messaging (FCM) for Android/Web
+   - APNs for iOS
+   - Web Push API with VAPID for browsers
+
+4. **Fireblocks Integration**
+   - Webhook processing for transaction lifecycle events
+   - Status change detection and notification triggering
+
+### Workflow
+
+1. **Device Registration**
+
+   ```mermaid
+   sequenceDiagram
+      Client->>Backend: Register device token
+      Backend->>Database: Store token & platform info
+      Backend->>Client: Registration confirmed
+   ```
+
+2. **Transaction Updates**
+   ```mermaid
+   sequenceDiagram
+      Fireblocks->>Backend: Transaction status webhook
+      Backend->>Database: Look up user devices
+      Backend->>Push Service: Send notifications
+      Push Service->>Client: Deliver notification
+   ```
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js ≥ 20
+- SQL database
+- Firebase project (for FCM)
+- VAPID keys (for Web Push)
+
+### Installation
+
+1. Clone the repository
+
+   ```bash
+   git clone git@github.com:fireblocks/ew-backend-demo.git
+   cd ew-backend-demo
+   ```
+
+2. Install dependencies
+
+   ```bash
+   yarn install
+   ```
+
+3. Configure environment variables
+
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. Run database migrations
+
+   ```bash
+   yarn migration:run
+   ```
+
+5. Start the server
+   ```bash
+   yarn dev
+   ```
+
+### Configuration
+
+Required environment variables:
+
+```env
+##### Server #####
+PORT=3000
+NODE_ENV=development
+
+##### Database #####
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=db_user
+DB_PASSWORD=db_pwd
+DB_NAME=ew_demo
+
+##### Authentication #####
+JWKS_URI=your-jwks-uri
+ISSUER=your-issuer
+AUDIENCE=your-audience
+
+##### Fireblocks Webhook Public Key #####
+FIREBLOCKS_WEBHOOK_PUBLIC_KEY= "-----BEGIN PUBLIC KEY-----\nMII...""
+
+##### Firebase Service Account #####
+FIREBASE_SERVICE_ACCOUNT_PATH=path-to-yor-service-account-file
+
+##### Push Notifications #####
+VAPID_SUBJECT=mailto:your-email@example.com
+VAPID_PUBLIC_KEY=your-vapid-public-key
+VAPID_PRIVATE_KEY=your-vapid-private-key
+
+##### CORS Origins #####
+ORIGIN_WEB_SDK=http://localhost:3000, https://your-domain.com
+```
+
+### Firebase Service Account File
+
+The `FIREBASE_SERVICE_ACCOUNT_PATH` environment variable should point to a Firebase service account JSON file. This file is required for the backend to authenticate with Firebase Cloud Messaging (FCM) and send push notifications to Android and web clients.
+
+**How to obtain the service account file:**
+1. Go to the [Firebase Console](https://console.firebase.google.com/) and select your project.
+2. Navigate to **Project Settings** (gear icon) > **Service Accounts**.
+3. Click **Generate new private key** under the Firebase Admin SDK section.
+4. Download the generated JSON file and save it securely (e.g., `firebase-service-account.json`).
+5. Set the `FIREBASE_SERVICE_ACCOUNT_PATH` variable in your `.env` file to the path of this JSON file (relative to the project root or as an absolute path).
+
+**Example:**
+```env
+FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
+```
+
+**Security Best Practices:**
+- **Never commit your service account file to version control.** Add it to your `.gitignore`.
+- Store the file securely and restrict access to only trusted team members.
+- Rotate the key if you suspect it has been compromised.
+
+### VAPID Keys Configuration
+
+VAPID (Voluntary Application Server Identification) keys are required for Web Push notifications. These keys allow push services to identify your application server and ensure that only your server can send push notifications to your users.
+
+**How to generate VAPID keys:**
+
+1. **Using the web-push library (recommended):**
+   ```bash
+   npx web-push generate-vapid-keys
+   ```
+
+2. **Using Firebase CLI:**
+   ```bash
+   firebase login
+   firebase projects:list
+   firebase use <your-project-id>
+   firebase messaging:generate-vapid-key
+   ```
+
+3. **Using the Firebase Console:**
+   - Go to the [Firebase Console](https://console.firebase.google.com/) and select your project
+   - Navigate to **Project Settings** (gear icon) > **Cloud Messaging**
+   - Under the **Web configuration** section, click **Generate key pair**
+   - Copy the generated key pair
+
+**Setting up VAPID keys in your environment:**
+
+```env
+VAPID_SUBJECT=mailto:your-email@example.com
+VAPID_PUBLIC_KEY=your-vapid-public-key
+VAPID_PRIVATE_KEY=your-vapid-private-key
+```
+
+**Important notes:**
+- The `VAPID_SUBJECT` should be a valid email address or URL that identifies your application
+- The public key will be used by client applications to subscribe to push notifications
+- The private key is used by your server to sign push messages
+- **Never expose your VAPID private key** in client-side code or commit it to version control
+- The same VAPID key pair should be used consistently across your application
+
+**Client-side usage:**
+Your web clients will need the public key to register for push notifications. The backend exposes this via the `/api/notifications/vapid-public-key` endpoint.
+
+## Project Structure
+
+```
+src/
+├── controllers/      # Request handlers
+├── middleware/       # Auth and webhook middleware
+├── migrations/       # Database migrations
+├── model/            # Database models
+├── routes/           # API route definitions
+├── services/         # Business logic
+├── types/            # TypeScript type definitions
+└── util/             # Utility functions
+
+client/
+├── examples/
+│   ├── react/        # React integration examples
+│   └── web/          # Web worker examples
+```
+
+## API Endpoints
+
+### Push Notification Registration
+
+```http
+POST /api/notifications/register-token
+Content-Type: application/json
+Authorization: Bearer your-token
+
+{
+  "token": "firebase-device-token",
+  "platform": "android|ios|web-fcm",
+  "walletId": "your-embedded-wallet-id",
+  "deviceId": "optional-device-id"
+}
+```
+
+```http
+POST /api/notifications/register-subscription
+Content-Type: application/json
+Authorization: Bearer your-token
+
+{
+  "subscription": {
+    "endpoint": "https://push-service.url",
+    "keys": {
+      "auth": "auth-secret",
+      "p256dh": "public-key"
+    }
+  },
+  "walletId": "your-embedded-wallet-id"
+}
+```
+
+### Web Push Setup
+
+```http
+GET /api/notifications/vapid-public-key
+```
+
+## Security Considerations
+
+- All endpoints require JWT authentication
+- Push tokens are tied to authenticated sessions
+- Notification payloads contain minimal data
+- Rate limiting prevents abuse
+- CORS is configured for allowed origins only
+- HTTPS required for web push
+
+## Development
+
+### Running Tests
+
+```bash
+yarn test
+```
+
+### Code Quality
+
+```bash
+yarn lint
+yarn format
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+
+================================================
+FILE: build.sh
+================================================
+#!/bin/bash -e
+yarn install --production=false
+rm -rf dist
+yarn build
+
+
+
+================================================
+FILE: docker-compose.yaml
+================================================
+volumes:
+  app_db:
+
+services:
+  mysql:
+    hostname: mysql
+    image: mysql:8.0.26
+    platform: linux/amd64
+    ports:
+      - '3306:3306'
+    volumes:
+      - app_db:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=ew_demo
+      - MYSQL_ROOT_PASSWORD=test
+
+
+
+================================================
+FILE: Dockerfile
+================================================
+FROM node:20-alpine
+
+RUN apk add bash git python3 make tini && npm i -g typescript
+
+ENV NODE_ENV=dev
+
+USER node
+COPY --chown=node:node yarn.lock /opt/services/ew-demo/
+COPY --chown=node:node package.json /opt/services/ew-demo/
+
+WORKDIR /opt/services/ew-demo
+RUN yarn install --production=false --frozen-lockfile
+COPY  --chown=node:node *.json *.ts /opt/services/ew-demo/
+COPY  --chown=node:node src/ /opt/services/ew-demo/src/
+
+# SET ARGS, LABELS, ENVS
+ARG IMAGE_TAG
+ARG SERVICE_NAME
+ENV DD_SERVICE="${SERVICE_NAME}"
+ENV DD_VERSION="${IMAGE_TAG}"
+
+# BUILD
+RUN yarn build && yarn cache clean
+
+ENTRYPOINT ["/sbin/tini",  "-g", "--", "yarn", "run", "start"]
+
+
+
+================================================
+FILE: eslint.config.mjs
+================================================
+import js from '@eslint/js';
+import ts from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import prettier from 'eslint-config-prettier';
+import globals from 'globals';
+
+export default [
+  // Ignore TMP directory and test files
+  {
+    ignores: [
+      'dist/**/*',
+      'TMP: [SaaS] EW Minimal Backend/**/*',
+    ]
+  },
+
+  // Basic JavaScript config for all JS files
+  {
+    files: ['**/*.{js,mjs,cjs}'],
+    ...js.configs.recommended,
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        ...globals.node
+      }
+    }
+  },
+
+   // Service worker files configuration
+   {
+    files: ['**/worker/firebase-messaging-sw.js', '**/firebase-messaging-sw.js'],
+    languageOptions: {
+      globals: {
+        ...globals.serviceworker,
+        importScripts: 'readonly',
+        firebase: 'readonly'
+      }
+    }
+  },
+
+  // Client React Hook TypeScript configuration
+  {
+    files: ['client/examples/react/**/*.ts', 'client/examples/react/**/*.tsx'],
+    plugins: {
+      '@typescript-eslint': ts
+    },
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: './tsconfig.json',
+        ecmaFeatures: {
+          jsx: true
+        }
+      },
+      globals: {
+        ...globals.browser,
+        window: 'readonly',
+        document: 'readonly'
+      }
+    },
+    rules: {
+      ...ts.configs.recommended.rules,
+    }
+  },
+
+  // TypeScript backend specific configuration
+  {
+    files: ['src/**/*.ts'],
+    plugins: {
+      '@typescript-eslint': ts
+    },
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: './tsconfig.json'
+      }
+    },
+    rules: {
+      ...ts.configs.recommended.rules,
+      ...ts.configs['recommended-requiring-type-checking'].rules,
+      'require-await': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_'
+      }],
+    }
+  },
+
+  // Apply Prettier config last
+  prettier
+];
+
+
+
+================================================
+FILE: jest.config.cjs
+================================================
+/** @type {import('ts-jest').JestConfigWithTsJest} */
+module.exports = {
+  preset: "ts-jest",
+  testEnvironment: "node",
+  modulePathIgnorePatterns: ["<rootDir>/dist/"],
+};
+
+
+
+================================================
+FILE: LICENSE
+================================================
+MIT License
+
+Copyright (c) 2019 fireblocks
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+================================================
+FILE: Makefile
+================================================
+SHELL := /bin/bash
+
+start:
+	docker-compose up -d
+
+stop:
+	docker-compose down
+
+restart: stop start
+
+
+
+================================================
+FILE: package.json
+================================================
+{
+  "name": "fireblocks-ew-backend-demo",
+  "version": "1.0.1",
+  "description": "Fireblocks Embedded Wallet Backend Demo",
+  "main": "dist/src/server.js",
+  "type": "module",
+  "author": "",
+  "private": true,
+  "license": "MIT",
+  "config": {
+    "openapiSpecFile": "openapi.spec.json"
+  },
+  "scripts": {
+    "prebuild": "rimraf dist",
+    "build": "tsc",
+    "serve": "node dist/src/server.js",
+    "dev": "nodemon --exec node --loader ts-node/esm src/server.ts",
+    "typeorm": "typeorm-ts-node-esm",
+    "_typeorm": "ts-node ./node_modules/typeorm/cli.js -d src/data-source.ts",
+    "migration:generate": "yarn typeorm migration:generate -d src/data-source.ts",
+    "migration:run": "yarn typeorm migration:run -d src/data-source.ts",
+    "migration:revert": "yarn typeorm migration:revert -d src/data-source.ts",
+    "start": "yarn migration:run && yarn serve",
+    "test": "jest --coverage --passWithNoTests --runInBand --detectOpenHandles --forceExit",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format:check": "prettier ./src --check",
+    "docker:plantuml:start": "docker run -d --name plantuml --rm -p 127.0.0.1:8080:8080 plantuml/plantuml-server:jetty",
+    "docker:plantuml:stop": "docker stop plantuml",
+    "db:diagram": "yarn docker:plantuml:start && ts-node ./node_modules/.bin/typeorm-uml src/data-source-opts.ts --plantuml-url=http://127.0.0.1:8080 --download ../assets/images/model.png && yarn docker:plantuml:stop",
+    "db:diagram:public": "ts-node ./node_modules/.bin/typeorm-uml src/data-source-opts.ts --download ../assets/images/model.png",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "body-parser": "^2.2.0",
+    "coinmarketcap-js": "^1.7.0",
+    "compression": "^1.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "firebase": "^11.8.1",
+    "firebase-admin": "^13.4.0",
+    "fireblocks-sdk": "^5.37.0",
+    "helmet": "^8.1.0",
+    "jose": "^6.0.11",
+    "lru-cache": "^11.1.0",
+    "morgan": "^1.10.0",
+    "ms": "^2.1.3",
+    "mysql2": "^3.14.1",
+    "openid-client": "^6.5.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.24",
+    "uuid": "^11.1.0",
+    "web-push": "^3.6.7",
+    "rimraf": "^6.0.1",
+    "rxjs": "^7.8.2",
+    "sqlite3": "^5.1.7",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.27.0",
+    "@types/compression": "^1.8.0",
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.2",
+    "@types/jest": "^29.5.14",
+    "@types/morgan": "^1.9.9",
+    "@types/ms": "^2.1.0",
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.1.5",
+    "@types/supertest": "^6.0.3",
+    "@types/uuid": "^10.0.0",
+    "@types/web-push": "^3.6.4",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
+    "better-sqlite3": "^11.10.0",
+    "eslint": "^9.27.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-n": "^17.18.0",
+    "eslint-plugin-promise": "^7.2.1",
+    "husky": "^9.1.7",
+    "jest": "^29.7.0",
+    "jest-junit": "^16.0.0",
+    "lint-staged": "^16.0.0",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.5.3",
+    "react": "^19.1.0",
+    "supertest": "^7.1.1",
+    "ts-jest": "^29.3.4",
+    "ts-loader": "^9.5.2",
+    "ts-mockito": "^2.6.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typeorm-uml": "^1.6.5",
+    "typescript": "*"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml}": [
+      "prettier --write"
+    ]
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".spec.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node",
+    "reporters": [
+      "default",
+      "jest-junit"
+    ],
+    "coverageReporters": [
+      "json",
+      "cobertura",
+      "clover",
+      "json-summary",
+      "text",
+      "lcov"
+    ]
+  },
+  "resolutions": {
+    "reflect-metadata": "^0.2.2"
+  }
+}
+
+
+
+================================================
+FILE: tsconfig.json
+================================================
+{
+  "compilerOptions": {
+    /* Visit https://aka.ms/tsconfig to read more about this file */
+
+    /* Projects */
+    // "incremental": true,                              /* Save .tsbuildinfo files to allow for incremental compilation of projects. */
+    // "composite": true,                                /* Enable constraints that allow a TypeScript project to be used with project references. */
+    // "tsBuildInfoFile": "./.tsbuildinfo",              /* Specify the path to .tsbuildinfo incremental compilation file. */
+    // "disableSourceOfProjectReferenceRedirect": true,  /* Disable preferring source files instead of declaration files when referencing composite projects. */
+    // "disableSolutionSearching": true,                 /* Opt a project out of multi-project reference checking when editing. */
+    // "disableReferencedProjectLoad": true,             /* Reduce the number of projects loaded automatically by TypeScript. */
+
+    /* Language and Environment */
+    "target": "ES2020" /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ] /* Specify a set of bundled library declaration files that describe the target runtime environment. */,
+    "jsx": "react" /* Specify what JSX code is generated. */,
+    "experimentalDecorators": true /* Enable experimental support for TC39 stage 2 draft decorators. */,
+    "emitDecoratorMetadata": true /* Emit design-type metadata for decorated declarations in source files. */,
+    // "jsxFactory": "",                                 /* Specify the JSX factory function used when targeting React JSX emit, e.g. 'React.createElement' or 'h'. */
+    // "jsxFragmentFactory": "",                         /* Specify the JSX Fragment reference used for fragments when targeting React JSX emit e.g. 'React.Fragment' or 'Fragment'. */
+    // "jsximportSource": "",                            /* Specify module specifier used to import the JSX factory functions when using 'jsx: react-jsx*'. */
+    // "reactNamespace": "",                             /* Specify the object invoked for 'createElement'. This only applies when targeting 'react' JSX emit. */
+    // "noLib": true,                                    /* Disable including any library files, including the default lib.d.ts. */
+    // "useDefineForClassFields": true,                  /* Emit ECMAScript-standard-compliant class fields. */
+    // "moduleDetection": "auto",                        /* Control what method is used to detect module-format JS files. */
+
+    /* Modules */
+    "module": "ES2020" /* Specify what module code is generated. */,
+    "rootDir": "./" /* Specify the root folder within your source files. */,
+    "moduleResolution": "node" /* Specify how TypeScript looks up a file from a given module specifier. */,
+    // "baseUrl": "./",                                  /* Specify the base directory to resolve non-relative module names. */
+    // "paths": {},                                      /* Specify a set of entries that re-map imports to additional lookup locations. */
+    // "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
+    "typeRoots": [
+      "src/types",
+      "./src/types",
+      "./node_modules/@types"
+    ] /* Specify multiple folders that act like './node_modules/@types'. */,
+    // "types": [],                                      /* Specify type package names to be included without being referenced in a source file. */
+    // "allowUmdGlobalAccess": true,                     /* Allow accessing UMD globals from modules. */
+    // "moduleSuffixes": [],                             /* List of file name suffixes to search when resolving a module. */
+    "resolveJsonModule": true /* Enable importing .json files. */,
+    // "noResolve": true,                                /* Disallow 'import's, 'require's or '<reference>'s from expanding the number of files TypeScript should add to a project. */
+
+    /* JavaScript Support */
+    // "allowJs": true,                                  /* Allow JavaScript files to be a part of your program. Use the 'checkJS' option to get errors from these files. */
+    // "checkJs": true,                                  /* Enable error reporting in type-checked JavaScript files. */
+    // "maxNodeModuleJsDepth": 1,                        /* Specify the maximum folder depth used for checking JavaScript files from 'node_modules'. Only applicable with 'allowJs'. */
+
+    /* Emit */
+    // "declaration": true,                              /* Generate .d.ts files from TypeScript and JavaScript files in your project. */
+    // "declarationMap": true,                           /* Create sourcemaps for d.ts files. */
+    // "emitDeclarationOnly": true,                      /* Only output d.ts files and not JavaScript files. */
+    "sourceMap": true /* Create source map files for emitted JavaScript files. */,
+    // "outFile": "./",                                  /* Specify a file that bundles all outputs into one JavaScript file. If 'declaration' is true, also designates a file that bundles all .d.ts output. */
+    "outDir": "./dist" /* Specify an output folder for all emitted files. */,
+    // "removeComments": true,                           /* Disable emitting comments. */
+    // "noEmit": true,                                   /* Disable emitting files from a compilation. */
+    // "importHelpers": true,                            /* Allow importing helper functions from tslib once per project, instead of including them per-file. */
+    // "importsNotUsedAsValues": "remove",               /* Specify emit/checking behavior for imports that are only used for types. */
+    // "downlevelIteration": true,                       /* Emit more compliant, but verbose and less performant JavaScript for iteration. */
+    // "sourceRoot": "",                                 /* Specify the root path for debuggers to find the reference source code. */
+    // "mapRoot": "",                                    /* Specify the location where debugger should locate map files instead of generated locations. */
+    // "inlineSourceMap": true,                          /* Include sourcemap files inside the emitted JavaScript. */
+    // "inlineSources": true,                            /* Include source code in the sourcemaps inside the emitted JavaScript. */
+    // "emitBOM": true,                                  /* Emit a UTF-8 Byte Order Mark (BOM) in the beginning of output files. */
+    // "newLine": "crlf",                                /* Set the newline character for emitting files. */
+    // "stripInternal": true,                            /* Disable emitting declarations that have '@internal' in their JSDoc comments. */
+    // "noEmitHelpers": true,                            /* Disable generating custom helper functions like '__extends' in compiled output. */
+    // "noEmitOnError": true,                            /* Disable emitting files if any type checking errors are reported. */
+    // "preserveConstEnums": true,                       /* Disable erasing 'const enum' declarations in generated code. */
+    // "declarationDir": "./",                           /* Specify the output directory for generated declaration files. */
+    // "preserveValueimports": true,                     /* Preserve unused imported values in the JavaScript output that would otherwise be removed. */
+
+    /* Interop Constraints */
+    // "isolatedModules": true,                          /* Ensure that each file can be safely transpiled without relying on other imports. */
+    // "allowSyntheticDefaultimports": true,             /* Allow 'import x from y' when a module doesn't have a default export. */
+    "esModuleInterop": true /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultimports' for type compatibility. */,
+    // "preserveSymlinks": true,                         /* Disable resolving symlinks to their realpath. This correlates to the same flag in node. */
+    "forceConsistentCasingInFileNames": true /* Ensure that casing is correct in imports. */,
+
+    /* Type Checking */
+    "strict": true /* Enable all strict type-checking options. */,
+    // "noImplicitAny": true,                            /* Enable error reporting for expressions and declarations with an implied 'any' type. */
+    // "strictNullChecks": true,                         /* When type checking, take into account 'null' and 'undefined'. */
+    // "strictFunctionTypes": true,                      /* When assigning functions, check to ensure parameters and the return values are subtype-compatible. */
+    // "strictBindCallApply": true,                      /* Check that the arguments for 'bind', 'call', and 'apply' methods match the original function. */
+    "strictPropertyInitialization": false /* Check for class properties that are declared but not set in the constructor. */,
+    // "noImplicitThis": true,                           /* Enable error reporting when 'this' is given the type 'any'. */
+    // "useUnknownInCatchVariables": true,               /* Default catch clause variables as 'unknown' instead of 'any'. */
+    // "alwaysStrict": true,                             /* Ensure 'use strict' is always emitted. */
+    // "noUnusedLocals": true,                           /* Enable error reporting when local variables aren't read. */
+    // "noUnusedParameters": true,                       /* Raise an error when a function parameter isn't read. */
+    // "exactOptionalPropertyTypes": true,               /* Interpret optional property types as written, rather than adding 'undefined'. */
+    // "noImplicitReturns": true,                        /* Enable error reporting for codepaths that do not explicitly return in a function. */
+    // "noFallthroughCasesInSwitch": true,               /* Enable error reporting for fallthrough cases in switch statements. */
+    // "noUncheckedIndexedAccess": true,                 /* Add 'undefined' to a type when accessed using an index. */
+    // "noImplicitOverride": true,                       /* Ensure overriding members in derived classes are marked with an override modifier. */
+    // "noPropertyAccessFromIndexSignature": true,       /* Enforces using indexed accessors for keys declared using an indexed type. */
+    // "allowUnusedLabels": true,                        /* Disable error reporting for unused labels. */
+    // "allowUnreachableCode": true,                     /* Disable error reporting for unreachable code. */
+
+    /* Completeness */
+    // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
+    "skipLibCheck": true /* Skip type checking all .d.ts files. */
+  },
+  "include": ["src/**/*", "client/**/*", "*.config.{js,cjs,mjs,ts}"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
+  "files": ["src/types/custom.d.ts"]
+}
+
+
+
+================================================
+FILE: .dockerignore
+================================================
+dist
+node_modules
+.env
+.yarn
+
+
+
+================================================
+FILE: .env.example
+================================================
+##### Server #####
+NODE_ENV=development
+PORT=3000
+LOG_LEVEL=info
+
+##### Database #####
+DB_HOST=localhost
+DB_PORT=3306
+DB_USERNAME=root
+DB_PASSWORD=
+DB_NAME=ew_demo
+
+##### Authentication #####
+JWKS_URI=
+ISSUER=
+AUDIENCE=
+
+##### Fireblocks Webhook Public Key #####
+# Uncomment the appropriate line for the environment you are using
+
+# Fireblocks Sandbox
+FIREBLOCKS_WEBHOOK_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw+fZuC+0vDYTf8fYnCN6\n71iHg98lPHBmafmqZqb+TUexn9sH6qNIBZ5SgYFxFK6dYXIuJ5uoORzihREvZVZP\n8DphdeKOMUrMr6b+Cchb2qS8qz8WS7xtyLU9GnBn6M5mWfjkjQr1jbilH15Zvcpz\nECC8aPUAy2EbHpnr10if2IHkIAWLYD+0khpCjpWtsfuX+LxqzlqQVW9xc6z7tshK\neCSEa6Oh8+ia7Zlu0b+2xmy2Arb6xGl+s+Rnof4lsq9tZS6f03huc+XVTmd6H2We\nWxFMfGyDCX2akEg2aAvx7231/6S0vBFGiX0C+3GbXlieHDplLGoODHUt5hxbPJnK\nIwIDAQAB\n-----END PUBLIC KEY-----"
+# Fireblocks Production
+# FIREBLOCKS_WEBHOOK_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA0+6wd9OJQpK60ZI7qnZG\njjQ0wNFUHfRv85Tdyek8+ahlg1Ph8uhwl4N6DZw5LwLXhNjzAbQ8LGPxt36RUZl5\nYlxTru0jZNKx5lslR+H4i936A4pKBjgiMmSkVwXD9HcfKHTp70GQ812+J0Fvti/v\n4nrrUpc011Wo4F6omt1QcYsi4GTI5OsEbeKQ24BtUd6Z1Nm/EP7PfPxeb4CP8KOH\nclM8K7OwBUfWrip8Ptljjz9BNOZUF94iyjJ/BIzGJjyCntho64ehpUYP8UJykLVd\nCGcu7sVYWnknf1ZGLuqqZQt4qt7cUUhFGielssZP9N9x7wzaAIFcT3yQ+ELDu1SZ\ndE4lZsf2uMyfj58V8GDOLLE233+LRsRbJ083x+e2mW5BdAGtGgQBusFfnmv5Bxqd\nHgS55hsna5725/44tvxll261TgQvjGrTxwe7e5Ia3d2Syc+e89mXQaI/+cZnylNP\nSwCCvx8mOM847T0XkVRX3ZrwXtHIA25uKsPJzUtksDnAowB91j7RJkjXxJcz3Vh1\n4k182UFOTPRW9jzdWNSyWQGl/vpe9oQ4c2Ly15+/toBo4YXJeDdDnZ5c/O+KKadc\nIMPBpnPrH/0O97uMPuED+nI6ISGOTMLZo35xJ96gPBwyG5s2QxIkKPXIrhgcgUnk\ntSM7QYNhlftT4/yVvYnk0YcCAwEAAQ==\n-----END PUBLIC KEY-----"
+
+##### Firebase Service Account #####
+FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
+
+##### Push Notifications #####
+VAPID_SUBJECT=mailto:example@fireblocks.com
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+
+##### CORS Origins #####
+ORIGIN_WEB_SDK=http://localhost:5173, https://example.com
+
+
+
+================================================
+FILE: .lintstagedrc.json
+================================================
+{
+  "*.ts": [
+    "prettier --write"
+  ],
+  "*.html": [
+    "prettier --write"
+  ],
+  "*.scss": "prettier --write"
+}
+
+
+
+================================================
+FILE: .prettieignore
+================================================
+# Ignore artifacts:
+dist
+coverage
+scripts
+
+
+================================================
+FILE: .prettierrc.json
+================================================
+{}
+
+
+
+================================================
+FILE: client/README.md
+================================================
+# Fireblocks EW Client Integration
+
+This directory contains example implementations and documentation for integrating push notifications into client applications.
+
+## Directory Structure
+
+```
+client/
+├── examples/             # Example implementations
+│   ├── react/           # React integration examples
+│   │   └── hooks/       # React hooks for push notifications
+│   └── web/             # Plain web integration examples
+│       └── worker/      # Service worker implementations
+```
+
+## Integration Options
+
+1. **React Integration**
+   - Uses the `usePushNotifications` hook
+   - Supports both Firebase Cloud Messaging and Web Push
+   - See `examples/react/hooks/README.md` for implementation details
+
+2. **Web Integration**
+   - Service worker implementation for push notifications
+   - Supports both Firebase Cloud Messaging and Web Push
+   - See `examples/web/worker/README.md` for implementation details
+
+## Getting Started
+
+1. Choose your integration method (React or plain web)
+2. Follow the setup instructions in the respective README
+3. Configure your Firebase project (if using FCM) or generate VAPID keys (if using Web Push)
+4. Update your backend configuration with the appropriate keys
+
+
+
+================================================
+FILE: client/examples/react/hooks/README.md
+================================================
+# React Push Notifications Hook
+
+`usePushNotifications` is a React hook that provides a unified interface for implementing push notifications in React applications, supporting both Firebase Cloud Messaging (FCM) and Web Push.
+
+## Features
+
+- Support for both FCM and Web Push
+- Automatic fallback from FCM to Web Push
+- Permission management
+- Error handling
+- Loading states
+- TypeScript support
+
+## Installation
+
+1. Copy the `usePushNotifications.ts` file to your project
+2. Install required dependencies:
+
+```bash
+npm install firebase web-push @types/web-push
+```
+
+## Usage
+
+```typescript
+import { usePushNotifications } from './hooks/usePushNotifications';
+
+function App() {
+  const {
+    isSupported,
+    isEnabled,
+    isLoading,
+    error,
+    token,
+    enable
+  } = usePushNotifications({
+    vapidKey: 'YOUR_VAPID_PUBLIC_KEY',
+    firebaseConfig: {
+      // Your Firebase config
+    },
+    apiUrl: 'YOUR_API_URL',
+    getAccessToken: async () => 'YOUR_AUTH_TOKEN'
+  });
+
+  return (
+    <div>
+      {isSupported && !isEnabled && (
+        <button onClick={enable} disabled={isLoading}>
+          Enable Push Notifications
+        </button>
+      )}
+      {error && <div>Error: {error.message}</div>}
+    </div>
+  );
+}
+```
+
+## Hook Options
+
+- `vapidKey`: (optional) VAPID public key for Web Push
+- `firebaseConfig`: (optional) Firebase configuration object
+- `apiUrl`: Backend API URL for registering push subscriptions
+- `getAccessToken`: Function that returns a Promise resolving to an authentication token
+
+## Return Value
+
+```typescript
+interface UsePushNotificationsResult {
+  isSupported: boolean;      // Whether push notifications are supported
+  isEnabled: boolean;        // Whether notifications are enabled
+  isLoading: boolean;        // Loading state
+  error: Error | null;       // Error state
+  token: string | null;      // FCM token (if using Firebase)
+  enable: () => Promise<void>; // Function to enable notifications
+}
+```
+
+## Implementation Notes
+
+1. The hook will attempt to use Firebase Cloud Messaging first if `firebaseConfig` is provided
+2. If FCM fails or isn't configured, it will fall back to Web Push
+3. Service worker registration is handled automatically
+4. Subscriptions are automatically registered with your backend
+
+
+
+================================================
+FILE: client/examples/react/hooks/usePushNotifications.ts
+================================================
+/**
+ * NOTE: This is an example hook meant to be copied into a React project.
+ * Your project must have the following dependencies installed:
+ * - react
+ * - firebase
+ * - web-push
+ * - @types/react
+ * - @types/web-push
+ */
+import { FirebaseApp, getApps, initializeApp } from "firebase/app";
+import {
+  getMessaging,
+  getToken as getMessagingToken,
+} from "firebase/messaging";
+import { useCallback, useEffect, useState } from "react";
+import type { PushSubscription as WebPushSubscription } from "web-push";
+
+interface UsePushNotificationsOptions {
+  vapidKey?: string;
+  firebaseConfig?: {
+    apiKey: string;
+    authDomain: string;
+    projectId: string;
+    messagingSenderId: string;
+    appId: string;
+  };
+  apiUrl: string;
+  getAccessToken: () => Promise<string>;
+}
+
+interface PushNotificationState {
+  isSupported: boolean;
+  isEnabled: boolean;
+  token: string | null;
+  error: Error | null;
+  isLoading: boolean;
+}
+
+interface UsePushNotificationsResult extends PushNotificationState {
+  enable: () => Promise<void>;
+}
+
+// Helper function to convert browser PushSubscription to web-push PushSubscription
+function convertSubscription(
+  subscription: PushSubscription,
+): WebPushSubscription {
+  return {
+    endpoint: subscription.endpoint,
+    keys: {
+      p256dh: btoa(
+        String.fromCharCode(
+          ...new Uint8Array(subscription.getKey("p256dh") || new Uint8Array()),
+        ),
+      ),
+      auth: btoa(
+        String.fromCharCode(
+          ...new Uint8Array(subscription.getKey("auth") || new Uint8Array()),
+        ),
+      ),
+    },
+  };
+}
+
+export function usePushNotifications({
+  vapidKey,
+  firebaseConfig,
+  apiUrl,
+  getAccessToken,
+}: UsePushNotificationsOptions): UsePushNotificationsResult {
+  const [state, setState] = useState<PushNotificationState>({
+    isSupported: false,
+    isEnabled: false,
+    token: null,
+    error: null,
+    isLoading: true,
+  });
+
+  // Check if push notifications are supported
+  const checkSupport = useCallback((): boolean => {
+    // Check if the browser supports these Web APIs
+    const hasNotification = typeof Notification !== "undefined";
+    const hasServiceWorker = "serviceWorker" in navigator;
+    const hasPushManager = "PushManager" in window;
+
+    const isSupported = hasNotification && hasServiceWorker && hasPushManager;
+    setState((prev) => ({ ...prev, isSupported }));
+    return isSupported;
+  }, []);
+
+  // Request notification permission
+  const requestPermission = useCallback(async (): Promise<boolean> => {
+    try {
+      const permission = await Notification.requestPermission();
+      return permission === "granted";
+    } catch (error) {
+      console.error("Error requesting notification permission:", error);
+      setState((prev: PushNotificationState) => ({
+        ...prev,
+        error: error instanceof Error ? error : new Error(String(error)),
+      }));
+      return false;
+    }
+  }, []);
+
+  // Initialize Firebase messaging
+  const initializeFirebase = useCallback(async (): Promise<string | null> => {
+    if (!firebaseConfig) return null;
+
+    try {
+      let app: FirebaseApp;
+      const existingApps = getApps();
+
+      if (!existingApps.length) {
+        app = initializeApp(firebaseConfig);
+      } else {
+        app = existingApps[0];
+      }
+
+      const messaging = getMessaging(app);
+      const permission = await Notification.requestPermission();
+
+      if (permission !== "granted") {
+        throw new Error("Notification permission not granted");
+      }
+
+      const token = await getMessagingToken(messaging, { vapidKey });
+      return token;
+    } catch (error) {
+      console.error(
+        "Error initializing Firebase - check your configuration:",
+        error,
+      );
+      throw error;
+    }
+  }, [firebaseConfig, vapidKey]);
+
+  // Initialize Web Push
+  const initializeWebPush =
+    useCallback(async (): Promise<PushSubscription | null> => {
+      try {
+        const registration = await navigator.serviceWorker.register(
+          "/firebase-messaging-sw.js",
+        );
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: vapidKey,
+        });
+        return subscription;
+      } catch (error) {
+        console.error(
+          "Error initializing Web Push - check service worker and VAPID key:",
+          error,
+        );
+        throw error;
+      }
+    }, [vapidKey]);
+
+  // Register push subscription with backend
+  const registerToken = useCallback(
+    async (token: string): Promise<void> => {
+      const accessToken = await getAccessToken();
+      await fetch(`${apiUrl}/notifications/register-token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          token,
+          platform: "web-fcm",
+        }),
+      });
+    },
+    [apiUrl, getAccessToken],
+  );
+
+  const registerSubscription = useCallback(
+    async (browserSubscription: PushSubscription): Promise<void> => {
+      const accessToken = await getAccessToken();
+      const subscription = convertSubscription(browserSubscription);
+      await fetch(`${apiUrl}/notifications/register-subscription`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ subscription }),
+      });
+    },
+    [apiUrl, getAccessToken],
+  );
+
+  const registerWithBackend = useCallback(
+    async (
+      token: string | null,
+      browserSubscription: PushSubscription | null,
+    ): Promise<boolean> => {
+      try {
+        if (token) {
+          await registerToken(token);
+        }
+        if (browserSubscription) {
+          await registerSubscription(browserSubscription);
+        }
+        return true;
+      } catch (error) {
+        console.error("Error registering with notification service:", error);
+        return false;
+      }
+    },
+    [registerToken, registerSubscription],
+  );
+
+  // Enable push notifications
+  const enable = useCallback(async (): Promise<void> => {
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+    }));
+
+    try {
+      const isSupported = await checkSupport();
+      if (!isSupported) {
+        throw new Error("Push notifications are not supported");
+      }
+
+      const permissionGranted = await requestPermission();
+      if (!permissionGranted) {
+        throw new Error("Notification permission denied");
+      }
+
+      let token = null;
+      let subscription = null;
+
+      if (firebaseConfig) {
+        token = await initializeFirebase();
+      }
+
+      if (!token && vapidKey) {
+        subscription = await initializeWebPush();
+      }
+
+      if (!token && !subscription) {
+        throw new Error("Failed to initialize push notifications");
+      }
+
+      const registered = await registerWithBackend(token, subscription);
+      if (!registered) {
+        throw new Error("Failed to register with backend");
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isEnabled: true,
+        token: token || null,
+        isLoading: false,
+      }));
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        error: error instanceof Error ? error : new Error(String(error)),
+        isLoading: false,
+      }));
+    }
+  }, [
+    checkSupport,
+    requestPermission,
+    initializeFirebase,
+    initializeWebPush,
+    registerWithBackend,
+    firebaseConfig,
+    vapidKey,
+  ]);
+
+  // Initialize on mount
+  useEffect(() => {
+    checkSupport();
+    setState((prev) => ({
+      ...prev,
+      isLoading: false,
+    }));
+  }, [checkSupport]);
+
+  return {
+    ...state,
+    enable,
+  };
+}
+
+
+
+================================================
+FILE: client/examples/web/worker/README.md
+================================================
+# Push Notifications Service Worker
+
+This service worker implementation handles both Firebase Cloud Messaging (FCM) and Web Push notifications for web applications.
+
+## Features
+
+- Dual support for FCM and Web Push
+- Rich notification formatting
+- Click handling and navigation
+- Error handling
+- Automatic notification cleanup
+- Background message processing
+
+## Installation
+
+1. Copy `firebase-messaging-sw.js` to your project's public directory
+2. Configure Firebase (if using FCM)
+3. Set up your build process to inject Firebase config
+
+## Implementation
+
+### Basic Setup
+
+```javascript
+// In your web app
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+    scope: '/'
+  });
+}
+```
+
+### Notification Structure
+
+The service worker expects notifications in this format:
+
+```javascript
+{
+  title: "Notification Title",
+  body: "Notification message",
+  data: {
+    clickTarget: "/some/url", // URL to navigate to when clicked
+    // Any other custom data
+  },
+  actions: [], // Optional notification actions
+  tag: "notification-id" // For notification grouping
+}
+```
+
+## Features Explained
+
+1. **Installation Handling**
+   - Automatically skips waiting
+   - Claims clients for immediate control
+
+2. **Push Event Handling**
+   - Processes Web Push messages
+   - Shows rich notifications
+   - Handles missing or malformed data
+
+3. **Notification Click Handling**
+   - Closes notification when clicked
+   - Navigates to specified URL
+   - Focuses existing window if possible
+   - Opens new window if needed
+
+4. **Firebase Cloud Messaging**
+   - Handles background messages
+   - Processes FCM payloads
+   - Shows notifications for FCM messages
+
+5. **Error Handling**
+   - Catches and logs service worker errors
+   - Provides fallback notification for parsing errors
+   - Handles unhandled promise rejections
+
+## Configuration
+
+### Firebase Setup
+
+Update the Firebase library versions and config in the service worker:
+
+```javascript
+importScripts(
+  "https://www.gstatic.com/firebasejs/9.x.x/firebase-app-compat.js",
+  "https://www.gstatic.com/firebasejs/9.x.x/firebase-messaging-compat.js"
+);
+
+const firebaseConfig = {
+  // Your Firebase config
+};
+```
+
+### Asset Paths
+
+Update the paths to your notification assets:
+
+```javascript
+const options = {
+  icon: "/assets/images/logo.png",
+  badge: "/assets/images/badge.png"
+  // ...
+};
+```
+
+## Best Practices
+
+1. Keep the service worker file in the root directory for maximum scope
+2. Test both FCM and Web Push implementations
+3. Handle offline scenarios
+4. Provide fallback content for failed notifications
+5. Implement proper error logging
+
+
+
+================================================
+FILE: client/examples/web/worker/firebase-messaging-sw.js
+================================================
+/* eslint-env serviceworker */
+
+// Firebase messaging service worker for handling both Firebase Cloud Messaging and Web Push
+
+// TypeScript type definitions for service worker globals
+/** @type {ServiceWorkerGlobalScope} */
+const sw = self;
+
+sw.addEventListener("install", (event) => {
+  console.log("Service Worker installing.");
+  event.waitUntil(sw.skipWaiting());
+});
+
+sw.addEventListener("activate", (event) => {
+  console.log("Service Worker activating.");
+  event.waitUntil(sw.clients.claim());
+});
+
+// Handle push events (Web Push)
+sw.addEventListener("push", (event) => {
+  if (!event.data) {
+    console.log("Push event but no data");
+    return;
+  }
+
+  try {
+    const data = event.data.json();
+
+    const options = {
+      body: data.body || "",
+      icon: "/assets/images/logo.png",
+      badge: "/assets/images/badge.png",
+      vibrate: [100, 50, 100],
+      data: {
+        ...data.data,
+        clickTarget: data.clickTarget || "/",
+      },
+      actions: data.actions || [],
+      // Prevent duplicate notifications
+      tag: data.tag || "default",
+      // Auto-close after 5 minutes if not interacted with
+      requireInteraction: false,
+      silent: false,
+    };
+
+    event.waitUntil(
+      sw.registration.showNotification(
+        data.title || "New Notification",
+        options,
+      ),
+    );
+  } catch (error) {
+    console.error("Error handling push event:", error);
+    // Show a generic notification if parsing fails
+    event.waitUntil(
+      sw.registration.showNotification("New Notification", {
+        body: "You have a new notification",
+        icon: "/assets/images/logo.png",
+      }),
+    );
+  }
+});
+
+// Handle notification clicks
+sw.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const clickTarget = event.notification.data?.clickTarget || "/";
+
+  event.waitUntil(
+    sw.clients.matchAll({ type: "window" }).then((clientList) => {
+      // If a window is already open, focus it and navigate
+      for (const client of clientList) {
+        if ("focus" in client) {
+          client.focus();
+          if (client.navigate) {
+            return client.navigate(clickTarget);
+          }
+          return;
+        }
+      }
+      // If no window is open, open a new one
+      if (sw.clients.openWindow) {
+        return sw.clients.openWindow(clickTarget);
+      }
+    }),
+  );
+});
+
+// Handle Firebase Cloud Messaging
+try {
+  importScripts(
+    "https://www.gstatic.com/firebasejs/9.x.x/firebase-app-compat.js",
+  );
+  importScripts(
+    "https://www.gstatic.com/firebasejs/9.x.x/firebase-messaging-compat.js",
+  );
+
+  const firebaseConfig = {
+    // Firebase config will be injected by the build process
+    // or loaded from a separate config file
+  };
+
+  if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+    throw new Error("Firebase configuration is missing");
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  const messaging = firebase.messaging();
+
+  // Handle background messages
+  messaging.onBackgroundMessage((payload) => {
+    console.log("Received background message:", payload);
+
+    const notificationTitle = payload.notification?.title || "New Message";
+    const notificationOptions = {
+      body: payload.notification?.body,
+      icon: "/assets/images/logo.png",
+      badge: "/assets/images/badge.png",
+      data: payload.data,
+      // Merge options from payload if provided
+      ...payload.notification,
+    };
+
+    return sw.registration.showNotification(
+      notificationTitle,
+      notificationOptions,
+    );
+  });
+} catch (error) {
+  console.error("Error initializing Firebase:", {
+    message: error.message,
+    code: error.code,
+    stack: error.stack,
+  });
+}
+
+// Optional: Handle errors
+sw.addEventListener("error", (event) => {
+  console.error("Service Worker error:", event.error);
+});
+
+sw.addEventListener("unhandledrejection", (event) => {
+  console.error("Service Worker unhandled rejection:", event.reason);
+});
+
+
+
+================================================
+FILE: src/app.ts
+================================================
+import express from "express";
+import rateLimit from "express-rate-limit";
+import type {
+  Express,
+  NextFunction,
+  Request,
+  RequestHandler,
+  Response,
+} from "express-serve-static-core";
+import helmet from "helmet";
+import { createRemoteJWKSet, JWTVerifyGetKey } from "jose";
+import { ApiError, InternalServerError } from "./errors/api.errors.js";
+import { AuthOptions as JwtAuthOptions } from "./middleware/jwt.js";
+import { createNotificationRoutes } from "./routes/notification.route.js";
+import { createWebhookRoutes } from "./routes/webhook.route.js";
+import { logger } from "./util/logger.js";
+
+export interface AppAuthOptions {
+  jwksUri: string;
+  issuer: string;
+  audience: string;
+}
+
+export function createApp(authOpts: AppAuthOptions): Express {
+  const app = express();
+
+  // Add security headers
+  app.use(helmet());
+
+  // TODO: Configure CORS
+  // const origins =
+  //   process.env.ORIGIN_WEB_SDK?.split(",").map((url) => url.trim()) || [];
+  // app.use(
+  //   cors({
+  //     origin: origins,
+  //     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  //     allowedHeaders: [
+  //       "Content-Type",
+  //       "Authorization",
+  //       "x-request-id",
+  //       "fireblocks-signature",
+  //     ],
+  //     credentials: true,
+  //     maxAge: 600,
+  //   }),
+  // );
+
+  // Add rate limiting (except for webhooks)
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.path.startsWith("/api/webhook"), // Skip webhooks
+  });
+  app.use("/api/", apiLimiter);
+
+  // Request parsing with raw body access for webhook validation
+  app.use(
+    express.json({
+      limit: "1mb",
+      verify: (req: Request, _res: Response, buf: Buffer) => {
+        // Store raw body for webhook signature verification
+        req.rawBody = buf;
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
+  // Add request logging
+  app.use((req: Request, res: Response, next: NextFunction): void => {
+    // Skip logging for health check route
+    if (req.originalUrl === "/" || req.path === "/") {
+      next();
+      return;
+    }
+
+    const startTime = Date.now();
+
+    res.on("finish", () => {
+      const duration = Date.now() - startTime;
+      const message = `${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms \n`;
+
+      // Log message based on status code
+      if (res.statusCode >= 500) {
+        logger.error(message);
+      } else if (res.statusCode >= 400) {
+        logger.warn(message);
+      } else {
+        logger.info(message);
+      }
+    });
+
+    next();
+  });
+
+  // Create JWT verification options
+  const JWKS = createRemoteJWKSet(new URL(authOpts.jwksUri));
+
+  const jwtAuthOpts: JwtAuthOptions = {
+    verify: {
+      issuer: authOpts.issuer,
+      audience: authOpts.audience,
+    },
+    key: JWKS as JWTVerifyGetKey,
+  };
+
+  // Health check route
+  app.get("/", (req: Request, res: Response) => {
+    res.send("OK");
+  });
+
+  // API Routes
+  const notificationRouter = createNotificationRoutes(jwtAuthOpts);
+  const webhookRouter = createWebhookRoutes();
+
+  // Use type assertion to handle Router middleware
+  app.use(
+    "/api/notifications",
+    notificationRouter as unknown as RequestHandler,
+  );
+  app.use("/api/webhook", webhookRouter as unknown as RequestHandler);
+
+  // Global error handling middleware
+  app.use(
+    (
+      err: Error | ApiError,
+      req: Request,
+      res: Response,
+      _next: NextFunction,
+    ): void => {
+      // Create structured error information
+      const errorContext = {
+        path: req.path,
+        method: req.method,
+        requestId: req.requestId,
+        error: {
+          name: err.name,
+          message: err.message,
+          stack: process.env.NODE_ENV !== "production" ? err.stack : undefined,
+        },
+      };
+
+      // Log error with context
+      logger.error("Request error", errorContext);
+
+      // Convert to ApiError if needed
+      const apiError =
+        err instanceof ApiError
+          ? err
+          : new InternalServerError(
+              process.env.NODE_ENV !== "production"
+                ? err.message
+                : "Internal Server Error",
+            );
+
+      // Define type-safe error response structure
+      interface ErrorResponse {
+        error: string;
+        code?: string;
+        requestId?: string;
+      }
+
+      // Build error response with optional fields
+      const errorResponse: ErrorResponse = {
+        error: apiError.message,
+        ...(apiError.errorCode && { code: apiError.errorCode }),
+        ...(req.requestId && { requestId: req.requestId }),
+      };
+
+      // Send error response
+      res.status(apiError.statusCode).json(errorResponse);
+    },
+  );
+
+  return app;
+}
+
+
+
+================================================
+FILE: src/data-source.ts
+================================================
+import "dotenv/config";
+import path from "path";
+import { DataSource } from "typeorm";
+import { fileURLToPath } from "url";
+import { DeviceToken } from "./model/device-token.js";
+import { WebPushSubscription } from "./model/web-push-subscription.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export const AppDataSource = new DataSource({
+  type: "mysql",
+  host: process.env.DB_HOST || "localhost",
+  port: Number(process.env.DB_PORT) || 3306,
+  username: process.env.DB_USERNAME || "root",
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME || "ew_demo",
+  synchronize: false, // Always false to ensure migrations are used
+  logging: process.env.NODE_ENV !== "production",
+  entities: [DeviceToken, WebPushSubscription],
+  migrations: [path.join(__dirname, "/migrations/*.{ts,js}")],
+  migrationsRun: true, // Automatically run migrations on startup
+  subscribers: [],
+});
+
+
+
+================================================
+FILE: src/server.ts
+================================================
+import dotenv from "dotenv";
+import admin from "firebase-admin";
+import fs from "fs";
+import { createApp } from "./app.js";
+import { AppDataSource } from "./data-source.js";
+import { logger } from "./util/logger.js";
+
+// Load environment variables
+dotenv.config();
+console.log("ENVIRONMENT:", process.env);
+
+async function initializeApp(): Promise<void> {
+  try {
+    // Initialize Firebase Admin if credentials are provided
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+      let serviceAccount;
+      try {
+        serviceAccount = JSON.parse(
+          fs.readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH, "utf8"),
+        ) as admin.ServiceAccount;
+      } catch (e) {
+        logger.error("Invalid Firebase service account JSON", { error: e });
+        throw e;
+      }
+
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+
+      logger.info("Firebase Admin SDK initialized");
+    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      // Or use credentials file
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+      });
+      logger.info(
+        "Firebase Admin SDK initialized with application default credentials",
+      );
+    } else {
+      logger.warn("Firebase Admin SDK not initialized", {
+        reason: "Missing credentials",
+      });
+    }
+
+    // Initialize database connection
+    await AppDataSource.initialize();
+    logger.info("Database connection initialized");
+
+    // Create and start Express app
+    const port = parseInt(process.env.PORT || "3000", 10);
+    const app = createApp({
+      jwksUri: process.env.JWKS_URI,
+      issuer: process.env.ISSUER,
+      audience: process.env.AUDIENCE,
+    });
+
+    app.listen(port, () => {
+      logger.info("Server running", { port });
+    });
+  } catch (error) {
+    logger.error("Failed to initialize application", {
+      error,
+      stack: error instanceof Error ? error.stack : "No stack trace available",
+    });
+    process.exit(1);
+  }
+}
+
+// Start the application
+initializeApp().catch((error) => {
+  logger.error("Unhandled error during initialization", { error });
+  process.exit(1);
+});
+
+// Handle uncaught errors
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught exception", { error });
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (error) => {
+  logger.error("Unhandled rejection", { error });
+  process.exit(1);
+});
+
+
+
+================================================
+FILE: src/controllers/base.controller.ts
+================================================
+import { NextFunction, Request, RequestHandler, Response } from "express";
+import { UnauthorizedError } from "../errors/api.errors.js";
+import { logger } from "../util/logger.js";
+
+/**
+ * Base controller providing common functionality for all controllers
+ */
+export abstract class BaseController {
+  /**
+   * Wraps request handlers with standard error handling and response formatting
+   */
+  protected handleRequest(
+    handler: (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => Promise<void> | void,
+  ): RequestHandler {
+    return async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        await handler(req, res, next);
+      } catch (error) {
+        logger.error("Request handler error", {
+          error,
+          path: req.path,
+          method: req.method,
+          userId: req.auth?.payload.sub,
+        });
+        next(error);
+      }
+    };
+  }
+
+  /**
+   * Standardized success response
+   */
+  protected sendResponse<T>(
+    res: Response,
+    data: T,
+    status: number = 200,
+  ): void {
+    res.status(status).json({
+      success: true,
+      data,
+    });
+  }
+
+  /**
+   * Standardized error response
+   */
+  protected sendError(
+    res: Response,
+    error: string,
+    status: number = 400,
+  ): void {
+    res.status(status).json({
+      success: false,
+      error,
+    });
+  }
+
+  /**
+   * Checks if request is authenticated
+   */
+  protected requireAuth(req: Request): void {
+    if (!req.auth?.payload.sub) {
+      throw new UnauthorizedError("Authentication required", "AUTH_REQUIRED");
+    }
+  }
+}
+
+
+
+================================================
+FILE: src/controllers/notification.controller.ts
+================================================
+import type { Request, RequestHandler } from "express";
+import { ParamsDictionary } from "express-serve-static-core";
+import type { PushSubscription } from "web-push";
+import {
+  BadRequestError,
+  InternalServerError,
+  UnauthorizedError,
+} from "../errors/api.errors.js";
+import type { DeviceToken } from "../model/device-token.js";
+import { PlatformType } from "../model/device-token.js";
+import type { WebPushSubscription } from "../model/web-push-subscription.js";
+import { notificationService } from "../services/notification.service.js";
+import { logger } from "../util/logger.js";
+import { BaseController } from "./base.controller.js";
+
+// Enhanced type definitions with validation
+interface RegisterDeviceTokenBody {
+  token: string;
+  platform: PlatformType;
+  walletId: string;
+  deviceId?: string;
+}
+
+interface RegisterWebPushBody {
+  subscription: PushSubscription;
+  walletId: string;
+}
+
+type DeviceTokenResponse = Pick<
+  DeviceToken,
+  "id" | "userId" | "platform" | "walletId" | "deviceId"
+>;
+
+type WebPushResponse = Pick<WebPushSubscription, "id" | "userId" | "endpoint">;
+
+/**
+ * Controller handling notification-related endpoints including device token
+ * registration and web push subscription management.
+ */
+export class NotificationController extends BaseController {
+  /**
+   * Register a device token for push notifications
+   * @throws {UnauthorizedError} When user is not authenticated
+   * @throws {BadRequestError} When input validation fails
+   */
+  registerDeviceToken(): RequestHandler {
+    return this.handleRequest(
+      async (
+        req: Request<
+          ParamsDictionary,
+          unknown,
+          Partial<RegisterDeviceTokenBody>
+        >,
+        res,
+      ) => {
+        this.requireAuth(req);
+
+        const userId = this.validateUserId(req.auth?.payload.sub);
+        const deviceTokenData = this.validateDeviceTokenInput(req.body);
+
+        const deviceToken = await notificationService.storeDeviceToken(
+          userId,
+          deviceTokenData.token,
+          deviceTokenData.platform,
+          deviceTokenData.walletId,
+          deviceTokenData.deviceId,
+        );
+
+        logger.info("Device token registered", {
+          id: deviceToken.id,
+          userId,
+          platform: deviceTokenData.platform,
+        });
+
+        const response: DeviceTokenResponse = {
+          id: deviceToken.id,
+          userId: deviceToken.userId,
+          platform: deviceToken.platform,
+          walletId: deviceToken.walletId,
+          deviceId: deviceToken.deviceId,
+        };
+
+        this.sendResponse(res, response);
+      },
+    );
+  }
+
+  /**
+   * Register a web push subscription
+   * @throws {UnauthorizedError} When user is not authenticated
+   * @throws {BadRequestError} When input validation fails
+   */
+  registerWebPushSubscription(): RequestHandler {
+    return this.handleRequest(
+      async (
+        req: Request<ParamsDictionary, unknown, Partial<RegisterWebPushBody>>,
+        res,
+      ) => {
+        this.requireAuth(req);
+
+        const userId = this.validateUserId(req.auth?.payload.sub);
+        const webPushData = this.validateWebPushInput(req.body);
+
+        const webPushSubscription =
+          await notificationService.storeWebPushSubscription(
+            userId,
+            webPushData.walletId,
+            webPushData.subscription,
+          );
+
+        logger.info("Web push subscription registered", {
+          id: webPushSubscription.id,
+          userId,
+          platform: PlatformType.WEB_PUSH,
+          endpoint: webPushSubscription.endpoint,
+        });
+
+        const response: WebPushResponse = {
+          id: webPushSubscription.id,
+          userId: webPushSubscription.userId,
+          endpoint: webPushSubscription.endpoint,
+        };
+
+        this.sendResponse(res, response);
+      },
+    );
+  }
+
+  /**
+   * Get VAPID public key for web push setup
+   * @throws {InternalServerError} When VAPID key is not configured
+   */
+  getVapidPublicKey(): RequestHandler {
+    return this.handleRequest((req, res) => {
+      const publicKey = process.env.VAPID_PUBLIC_KEY;
+
+      if (!publicKey) {
+        const error = new InternalServerError(
+          "Push notifications are not properly configured",
+          "MISSING_VAPID_PUBLIC_KEY",
+        );
+
+        logger.error("VAPID configuration error", {
+          error,
+          path: req.path,
+        });
+
+        throw error;
+      }
+
+      this.sendResponse(res, { publicKey });
+    });
+  }
+
+  private validateUserId(userId: string | undefined): string {
+    if (!userId) {
+      throw new UnauthorizedError(
+        "User ID not found in token",
+        "AUTH_NO_USER_ID",
+      );
+    }
+    return userId;
+  }
+
+  private validateDeviceTokenInput(
+    input: Partial<RegisterDeviceTokenBody>,
+  ): RegisterDeviceTokenBody {
+    const { token, platform, walletId, deviceId } = input;
+
+    if (!token || typeof token !== "string") {
+      throw new BadRequestError(
+        "Token is required and must be a string",
+        "INVALID_TOKEN",
+      );
+    }
+
+    if (
+      !platform ||
+      typeof platform !== "string" ||
+      !Object.values(PlatformType).includes(platform)
+    ) {
+      throw new BadRequestError("Invalid platform type", "INVALID_PLATFORM");
+    }
+
+    if (!walletId || typeof walletId !== "string") {
+      throw new BadRequestError(
+        "WalletId is required and must be a string",
+        "INVALID_WALLET_ID",
+      );
+    }
+
+    if (deviceId !== undefined && typeof deviceId !== "string") {
+      throw new BadRequestError(
+        "DeviceId must be a string",
+        "INVALID_DEVICE_ID",
+      );
+    }
+
+    return { token, platform, walletId, deviceId };
+  }
+
+  private isValidSubscription(value: unknown): value is PushSubscription {
+    if (!value || typeof value !== "object") return false;
+    const sub = value as Partial<PushSubscription>;
+    return Boolean(
+      sub.endpoint &&
+        typeof sub.endpoint === "string" &&
+        sub.keys &&
+        typeof sub.keys.auth === "string" &&
+        typeof sub.keys.p256dh === "string",
+    );
+  }
+
+  private validateWebPushInput(
+    input: Partial<RegisterWebPushBody>,
+  ): RegisterWebPushBody {
+    const { subscription, walletId } = input;
+
+    if (!this.isValidSubscription(subscription)) {
+      throw new BadRequestError(
+        "Invalid subscription format",
+        "INVALID_SUBSCRIPTION",
+      );
+    }
+
+    if (!walletId || typeof walletId !== "string") {
+      throw new BadRequestError(
+        "WalletId is required and must be a string",
+        "INVALID_WALLET_ID",
+      );
+    }
+
+    return { subscription, walletId };
+  }
+}
+
+export const notificationController = new NotificationController();
+
+
+
+================================================
+FILE: src/controllers/webhook.controller.ts
+================================================
+import { Request, RequestHandler, Response } from "express";
+import {
+  PeerType,
+  TransactionResponse,
+  TransactionStatus,
+} from "fireblocks-sdk";
+import { mkdir, writeFile } from "fs/promises";
+import { join } from "path";
+import { BadRequestError, InternalServerError } from "../errors/api.errors.js";
+import { notificationService } from "../services/notification.service.js";
+import { EWBalancePayload, WebhookPayload } from "../types/fireblocks.js";
+import { getBooleanEnv } from "../util/env.js";
+import { logger } from "../util/logger.js";
+import { BaseController } from "./base.controller.js";
+
+export class WebhookController extends BaseController {
+  /**
+   * Handles incoming Fireblocks webhook events.
+   *
+   * This request handler processes webhook payloads, validates them for required fields,
+   * logs the incoming data, saves the webhook data to a file, and routes the event
+   * to appropriate handlers based on the event type.
+   *
+   * @returns {RequestHandler} Express request handler function
+   * @throws {BadRequestError} When webhook payload is invalid
+   * @throws {InternalServerError} When webhook processing fails
+   */
+  handleWebhookEvent(): RequestHandler {
+    return this.handleRequest((req: Request, res: Response) => {
+      const webhook = req.body as unknown;
+
+      if (!this.isValidWebhook(webhook)) {
+        logger.warn("Invalid webhook payload received", { payload: webhook });
+        throw new BadRequestError(
+          "Invalid webhook payload",
+          "INVALID_WEBHOOK_PAYLOAD",
+        );
+      }
+
+      const logContext = {
+        eventId: webhook.id,
+        eventType: webhook.eventType,
+        resourceId: webhook.resourceId,
+      };
+
+      logger.info("Received webhook", logContext);
+
+      try {
+        // Process webhook asynchronously to respond quickly
+        void this.processWebhook(webhook).catch((error) => {
+          logger.error("Async webhook processing failed", {
+            ...logContext,
+            error,
+          });
+        });
+
+        this.sendResponse(res, { eventId: webhook.id });
+      } catch (error) {
+        logger.error("Error in webhook handler", { ...logContext, error });
+        throw new InternalServerError(
+          "Error processing webhook",
+          "WEBHOOK_PROCESSING_ERROR",
+        );
+      }
+    });
+  }
+
+  /**
+   * Processes the webhook asynchronously after responding to the client.
+   * @throws {Error} When webhook processing fails
+   */
+  private async processWebhook(webhook: WebhookPayload): Promise<void> {
+    try {
+      await this.saveWebhookToFile(webhook);
+
+      if (webhook.eventType.startsWith("transaction")) {
+        await this.handleTransactionEvent(webhook);
+      } else if (webhook.eventType.startsWith("embedded_wallet")) {
+        await this.handleEmbeddedWalletEvent(webhook);
+      } else {
+        logger.warn("Unhandled webhook event type", {
+          eventType: webhook.eventType,
+        });
+      }
+    } catch (error) {
+      logger.error("Failed to process webhook", {
+        eventType: webhook.eventType,
+        error,
+      });
+      throw new InternalServerError(
+        "Failed to process webhook",
+        "WEBHOOK_PROCESSING_ERROR",
+      );
+    }
+  }
+
+  /**
+   * Validates the webhook payload structure.
+   */
+  private isValidWebhook(webhook: unknown): webhook is WebhookPayload {
+    if (!webhook || typeof webhook !== "object") {
+      return false;
+    }
+
+    const candidate = webhook as Partial<WebhookPayload>;
+    return (
+      typeof candidate.eventType === "string" &&
+      candidate.data !== null &&
+      candidate.data !== undefined
+    );
+  }
+
+  /**
+   * Handles a transaction webhook event from the Fireblocks platform.
+   * @throws {InternalServerError} When transaction processing fails
+   */
+  private async handleTransactionEvent(webhook: WebhookPayload): Promise<void> {
+    const transaction = webhook.data as TransactionResponse;
+    const logContext = {
+      eventType: webhook.eventType,
+      txId: transaction.id,
+      status: transaction.status,
+    };
+
+    try {
+      const participants = this.getTransactionParticipants(transaction);
+
+      if (participants.length === 0) {
+        logger.info("No participants found for transaction", logContext);
+        return;
+      }
+
+      if (this.isNotifiableStatus(transaction.status)) {
+        await this.sendTransactionNotification(
+          participants,
+          transaction,
+          webhook,
+        );
+        logger.info("Transaction notification sent successfully", logContext);
+      } else {
+        logger.info("Event ignored - not a notifiable status", logContext);
+      }
+    } catch (error) {
+      logger.error("Failed to handle transaction event", {
+        ...logContext,
+        error,
+      });
+      throw new InternalServerError(
+        "Failed to handle transaction event",
+        "TRANSACTION_EVENT_ERROR",
+      );
+    }
+  }
+
+  /**
+   * Sends a transaction notification to participants
+   * @throws {InternalServerError} When notification fails to send
+   */
+  private async sendTransactionNotification(
+    participants: string[],
+    transaction: TransactionResponse,
+    webhook: WebhookPayload,
+  ): Promise<void> {
+    try {
+      await notificationService.sendNotification(participants, {
+        title: "Transaction Update",
+        body: `Transaction ${transaction.id.substring(0, 8)}... is now in ${transaction.status} status`,
+        data: {
+          type: webhook.eventType,
+          txId: transaction.id,
+          txHash: transaction.txHash,
+          status: transaction.status,
+          webhookData: getBooleanEnv("SEND_WEBHOOK_DATA", false)
+            ? webhook
+            : null,
+        },
+      });
+    } catch (error) {
+      logger.error("Failed to send transaction notification", {
+        txId: transaction.id,
+        error,
+      });
+      throw new InternalServerError(
+        "Failed to send transaction notification",
+        "TRANSACTION_EVENT_ERROR",
+      );
+    }
+  }
+
+  /**
+   * Handles events related to Embedded Wallets.
+   * @throws {InternalServerError} When event processing fails
+   */
+  private async handleEmbeddedWalletEvent(
+    webhook: WebhookPayload,
+  ): Promise<void> {
+    const data = webhook.data as EWBalancePayload;
+    const logContext = {
+      eventType: webhook.eventType,
+      walletId: data.walletId,
+    };
+
+    try {
+      await notificationService.sendNotification([data.walletId], {
+        title: "Wallet Update",
+        body: `Wallet ${data.walletId} received ${webhook.eventType} event`,
+        data: { ...webhook },
+      });
+      logger.info("Embedded wallet notification sent successfully", logContext);
+    } catch (error) {
+      logger.error("Failed to handle embedded wallet event", {
+        ...logContext,
+        error,
+      });
+      throw new InternalServerError(
+        "Failed to handle embedded wallet event",
+        "EMBEDDED_WALLET_EVENT_ERROR",
+      );
+    }
+  }
+
+  /**
+   * Extracts wallet IDs of all end user wallets that participate in the transaction.
+   */
+  private getTransactionParticipants(tx: TransactionResponse): string[] {
+    const participants = new Set<string>();
+
+    if (tx.source?.type === PeerType.END_USER_WALLET && tx.source.walletId) {
+      participants.add(tx.source.walletId);
+    }
+
+    if (
+      tx.destination?.type === PeerType.END_USER_WALLET &&
+      tx.destination.walletId
+    ) {
+      participants.add(tx.destination.walletId);
+    }
+
+    if (Array.isArray(tx.destinations)) {
+      tx.destinations.forEach(({ destination }) => {
+        if (
+          destination?.type === PeerType.END_USER_WALLET &&
+          destination.walletId
+        ) {
+          participants.add(destination.walletId);
+        }
+      });
+    }
+
+    return Array.from(participants);
+  }
+
+  /**
+   * Determines whether a transaction status should trigger a notification.
+   */
+  private isNotifiableStatus(_status: TransactionStatus): boolean {
+    // TODO: Implement specific logic for notifiable statuses
+    // return [TransactionStatus.PENDING_SIGNATURE, TransactionStatus.COMPLETED].includes(_status);
+    return true;
+  }
+
+  /**
+   * Saves webhook data to a file for audit and debugging purposes
+   */
+  private async saveWebhookToFile(webhook: WebhookPayload): Promise<void> {
+    // Only save webhooks to file if explicitly enabled via environment variable
+    const enableWebhookFileSaving = getBooleanEnv("TMP_SAVE", false);
+
+    if (!enableWebhookFileSaving) {
+      logger.debug("Webhook file saving is disabled");
+      return;
+    }
+
+    try {
+      const webhooksDir = join(process.cwd(), "TEMP_WEBHOOKS");
+      await mkdir(webhooksDir, { recursive: true });
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `${timestamp}-${webhook.eventType}-${webhook.resourceId || "NO_ID"}.json`;
+      const filepath = join(webhooksDir, filename);
+
+      await writeFile(filepath, JSON.stringify(webhook, null, 2), "utf-8");
+      logger.info("Webhook saved to file", { filepath });
+    } catch (error) {
+      logger.error("Failed to save webhook to file", { error });
+      // Don't throw - this is a non-critical operation
+    }
+  }
+}
+
+export const webhookController = new WebhookController();
+
+
+
+================================================
+FILE: src/errors/api.errors.ts
+================================================
+/**
+ * Base class for API errors
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly errorCode?: string,
+  ) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+}
+
+/**
+ * Error thrown when request validation fails
+ */
+export class BadRequestError extends ApiError {
+  constructor(message: string, errorCode?: string) {
+    super(message, 400, errorCode);
+  }
+}
+
+/**
+ * Error thrown when authentication fails
+ */
+export class UnauthorizedError extends ApiError {
+  constructor(message: string, errorCode?: string) {
+    super(message, 401, errorCode);
+  }
+}
+
+/**
+ * Error thrown when a requested resource is not found
+ */
+export class NotFoundError extends ApiError {
+  constructor(message: string, errorCode?: string) {
+    super(message, 404, errorCode);
+  }
+}
+
+/**
+ * Error thrown when there's a server error
+ */
+export class InternalServerError extends ApiError {
+  constructor(message: string, errorCode?: string) {
+    super(message, 500, errorCode);
+  }
+}
+
+
+
+================================================
+FILE: src/middleware/auth.ts
+================================================
+import { NextFunction, Request, Response } from "express";
+import admin from "firebase-admin";
+import { logger } from "../util/logger";
+
+// Extend Express Request interface
+interface FirebaseUser {
+  uid: string;
+  email?: string;
+}
+
+interface RequestWithUser extends Request {
+  user?: FirebaseUser;
+}
+
+export const validateFirebaseToken = async (
+  req: RequestWithUser,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+
+    const token = authHeader.split("Bearer ")[1];
+    if (!token) {
+      res.status(401).send("Unauthorized - No token provided");
+      return;
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    // Add the decoded token to the request
+    req.user = {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+    };
+
+    next();
+  } catch (error) {
+    logger.error("Error validating Firebase token:", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    res.status(401).send("Unauthorized");
+  }
+};
+
+
+
+================================================
+FILE: src/middleware/jwt.ts
+================================================
+import { Request, RequestHandler } from "express";
+import { JWTVerifyGetKey, JWTVerifyOptions, jwtVerify } from "jose";
+import { logger } from "../util/logger.js";
+
+// Define JWT payload interface
+interface JWTPayload {
+  sub?: string;
+  iat?: number;
+  exp?: number;
+  [key: string]: unknown;
+}
+
+// Define auth property type
+interface RequestAuth {
+  token: string;
+  payload: JWTPayload;
+}
+
+// Extend Express Request type
+declare module "express-serve-static-core" {
+  interface Request {
+    auth?: RequestAuth;
+  }
+}
+
+export interface AuthOptions {
+  verify: JWTVerifyOptions;
+  key: JWTVerifyGetKey;
+}
+
+function extractToken(req: Request): string | null {
+  if (req.headers.authorization?.startsWith("Bearer ")) {
+    return req.headers.authorization.split(" ")[1];
+  }
+
+  if (req.query.token && typeof req.query.token === "string") {
+    return req.query.token;
+  }
+
+  return null;
+}
+
+export const checkJwt = (options: AuthOptions): RequestHandler => {
+  const middleware: RequestHandler = async (req, res, next) => {
+    try {
+      const token = extractToken(req);
+
+      if (!token) {
+        logger.warn("Authentication failed", {
+          reason: "Missing authentication token",
+        });
+        res.status(401).json({ error: "Authentication required" });
+        return;
+      }
+
+      try {
+        const { payload } = await jwtVerify(token, options.key, options.verify);
+
+        // Add auth context to request
+        req.auth = {
+          token,
+          payload: payload as JWTPayload,
+        };
+
+        next();
+      } catch (error) {
+        logger.warn("Invalid authentication token", { error });
+        res.status(401).json({ error: "Invalid authentication token" });
+        return;
+      }
+    } catch (error) {
+      logger.error("Error in JWT middleware", { error });
+      next(error);
+    }
+  };
+
+  return middleware;
+};
+
+
+
+================================================
+FILE: src/middleware/webhook.ts
+================================================
+import crypto from "crypto";
+import { NextFunction, Request, RequestHandler, Response } from "express";
+import { logger } from "../util/logger.js";
+
+export const validateWebhookSignature: RequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const signature = req.headers["fireblocks-signature"];
+
+    if (!signature || typeof signature !== "string") {
+      logger.warn("Missing webhook signature", { signature });
+      res.status(401).json({ error: "Missing signature" });
+      return;
+    }
+
+    // const publicKey = getEnvOrThrow("FIREBLOCKS_WEBHOOK_PUBLIC_KEY").replace(/\\n/g, "\n");
+    const webhookPublicKey = process.env.FIREBLOCKS_WEBHOOK_PUBLIC_KEY;
+    if (
+      !webhookPublicKey ||
+      !webhookPublicKey.startsWith("-----BEGIN PUBLIC KEY-----")
+    ) {
+      logger.error("Invalid webhook public key configuration", {
+        webhookPublicKey,
+      });
+      res.status(500).json({ error: "Webhook not properly configured" });
+      return;
+    }
+    const publicKey = webhookPublicKey.replace(/\\n/g, "\n");
+
+    // Get the raw body as string
+    const rawBody = JSON.stringify(req.body);
+
+    try {
+      // Verify the signature
+      const verify = crypto.createVerify("SHA512");
+      verify.update(rawBody);
+
+      const isValid = verify.verify(publicKey, signature, "base64");
+
+      if (!isValid) {
+        logger.warn("Invalid webhook signature", { signature });
+        res.status(401).json({ error: "Invalid signature" });
+        return;
+      }
+
+      next();
+    } catch (error) {
+      logger.error("Error validating webhook signature", { error });
+      res.status(401).json({ error: "Invalid signature format" });
+      return;
+    }
+  } catch (error) {
+    logger.error("Error in webhook middleware", { error });
+    next(error);
+  }
+};
+
+
+
+================================================
+FILE: src/migrations/1746700230000-CreateTables.ts
+================================================
+import type { MigrationInterface, QueryRunner } from "typeorm";
+import { Table } from "typeorm";
+
+export class CreateTables1746700230000 implements MigrationInterface {
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create device_tokens table
+    await queryRunner.createTable(
+      new Table({
+        name: "device_tokens",
+        columns: [
+          {
+            name: "id",
+            type: "varchar",
+            length: "36",
+            isPrimary: true,
+            isGenerated: true,
+            generationStrategy: "uuid",
+          },
+          {
+            name: "userId",
+            type: "varchar",
+            length: "255",
+            isNullable: false,
+          },
+          {
+            name: "token",
+            type: "varchar",
+            length: "512",
+            isNullable: false,
+            isUnique: true,
+          },
+          {
+            name: "platform",
+            type: "enum",
+            enum: ["android", "ios", "web-fcm", "web-push"],
+            isNullable: false,
+          },
+          {
+            name: "walletId",
+            type: "varchar",
+            length: "255",
+            isNullable: false,
+          },
+          {
+            name: "deviceId",
+            type: "varchar",
+            length: "255",
+            isNullable: true,
+          },
+          {
+            name: "createdAt",
+            type: "timestamp",
+            default: "CURRENT_TIMESTAMP",
+          },
+          {
+            name: "updatedAt",
+            type: "timestamp",
+            default: "CURRENT_TIMESTAMP",
+            onUpdate: "CURRENT_TIMESTAMP",
+          },
+        ],
+        indices: [
+          {
+            name: "idx_device_tokens_user_id",
+            columnNames: ["userId"],
+          },
+          {
+            name: "idx_device_tokens_wallet_id",
+            columnNames: ["walletId"],
+          },
+          {
+            name: "idx_device_tokens_token",
+            columnNames: ["token"],
+            isUnique: true,
+          },
+        ],
+      }),
+      true,
+    );
+
+    // Create web_push_subscriptions table
+    await queryRunner.createTable(
+      new Table({
+        name: "web_push_subscriptions",
+        columns: [
+          {
+            name: "id",
+            type: "varchar",
+            length: "36",
+            isPrimary: true,
+            isGenerated: true,
+            generationStrategy: "uuid",
+          },
+          {
+            name: "userId",
+            type: "varchar",
+            length: "255",
+            isNullable: false,
+          },
+          {
+            name: "endpoint",
+            type: "varchar",
+            length: "512",
+            isNullable: false,
+            isUnique: true,
+          },
+          {
+            name: "auth",
+            type: "varchar",
+            length: "255",
+            isNullable: false,
+          },
+          {
+            name: "p256dh",
+            type: "varchar",
+            length: "255",
+            isNullable: false,
+          },
+          {
+            name: "walletId",
+            type: "varchar",
+            length: "255",
+            isNullable: false,
+          },
+          {
+            name: "createdAt",
+            type: "timestamp",
+            default: "CURRENT_TIMESTAMP",
+          },
+          {
+            name: "updatedAt",
+            type: "timestamp",
+            default: "CURRENT_TIMESTAMP",
+            onUpdate: "CURRENT_TIMESTAMP",
+          },
+        ],
+        indices: [
+          {
+            name: "idx_web_push_subscriptions_user_id",
+            columnNames: ["userId"],
+          },
+          {
+            name: "idx_web_push_subscriptions_wallet_id",
+            columnNames: ["walletId"],
+          },
+          {
+            name: "idx_web_push_subscriptions_endpoint",
+            columnNames: ["endpoint"],
+            isUnique: true,
+          },
+        ],
+      }),
+      true,
+    );
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.dropTable("web_push_subscriptions");
+    await queryRunner.dropTable("device_tokens");
+  }
+}
+
+
+
+================================================
+FILE: src/model/device-token.ts
+================================================
+import {
+  BaseEntity,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from "typeorm";
+
+export enum PlatformType {
+  ANDROID = "android",
+  IOS = "ios",
+  WEB_FCM = "web-fcm",
+  WEB_PUSH = "web-push",
+}
+
+@Entity("device_tokens")
+export class DeviceToken extends BaseEntity {
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
+
+  @Column()
+  @Index()
+  userId: string;
+
+  @Column({ length: 512 })
+  @Index({ unique: true })
+  token: string;
+
+  @Column({
+    type: "enum",
+    enum: PlatformType,
+  })
+  platform: PlatformType;
+
+  @Column()
+  @Index()
+  walletId: string;
+
+  @Column({ nullable: true })
+  deviceId?: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}
+
+
+
+================================================
+FILE: src/model/web-push-subscription.ts
+================================================
+import {
+  BaseEntity,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from "typeorm";
+
+@Entity("web_push_subscriptions")
+export class WebPushSubscription extends BaseEntity {
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
+
+  @Column()
+  @Index()
+  userId: string;
+
+  @Column({ length: 512 })
+  @Index({ unique: true })
+  endpoint: string;
+
+  @Column()
+  auth: string;
+
+  @Column()
+  p256dh: string;
+
+  @Column()
+  @Index()
+  walletId: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}
+
+
+
+================================================
+FILE: src/routes/notification.route.ts
+================================================
+import { Router } from "express";
+import { notificationController } from "../controllers/notification.controller.js";
+import { AuthOptions, checkJwt } from "../middleware/jwt.js";
+
+/**
+ * Creates notification routes
+ * @param authOpts JWT authentication options
+ */
+export function createNotificationRoutes(authOpts: AuthOptions): Router {
+  const router = Router();
+
+  // Register device token (secured)
+  router.post(
+    "/register-token",
+    checkJwt(authOpts),
+    notificationController.registerDeviceToken(),
+  );
+
+  // Register web push subscription (secured)
+  router.post(
+    "/register-subscription",
+    checkJwt(authOpts),
+    notificationController.registerWebPushSubscription(),
+  );
+
+  // Get VAPID public key for web push (public)
+  router.get("/vapid-public-key", notificationController.getVapidPublicKey());
+
+  return router;
+}
+
+
+
+================================================
+FILE: src/routes/webhook.route.ts
+================================================
+import { Router } from "express";
+import { webhookController } from "../controllers/webhook.controller.js";
+import { validateWebhookSignature } from "../middleware/webhook.js";
+
+/**
+ * Creates webhook routes
+ */
+export function createWebhookRoutes(): Router {
+  const router = Router();
+
+  // Webhook endpoint with signature validation
+  router.post(
+    "/",
+    validateWebhookSignature,
+    webhookController.handleWebhookEvent(),
+  );
+
+  return router;
+}
+
+
+
+================================================
+FILE: src/services/notification.service.ts
+================================================
+import admin from "firebase-admin";
+import { In, Repository } from "typeorm";
+import webpush, { PushSubscription } from "web-push";
+import { AppDataSource } from "../data-source.js";
+import { DeviceToken, PlatformType } from "../model/device-token.js";
+import { WebPushSubscription } from "../model/web-push-subscription.js";
+import { PushNotificationPayload } from "../types/fireblocks.js";
+import { logger } from "../util/logger.js";
+
+export class NotificationService {
+  private deviceTokenRepo: Repository<DeviceToken>;
+  private webPushRepo: Repository<WebPushSubscription>;
+
+  constructor() {
+    this.deviceTokenRepo = AppDataSource.getRepository(DeviceToken);
+    this.webPushRepo = AppDataSource.getRepository(WebPushSubscription);
+
+    // Initialize web-push with VAPID details
+    if (
+      process.env.VAPID_SUBJECT &&
+      process.env.VAPID_PUBLIC_KEY &&
+      process.env.VAPID_PRIVATE_KEY
+    ) {
+      webpush.setVapidDetails(
+        process.env.VAPID_SUBJECT,
+        process.env.VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY,
+      );
+      logger.info("Web Push configured with VAPID keys");
+    } else {
+      logger.warn("Web Push not configured", { reason: "missing VAPID keys" });
+    }
+  }
+
+  /**
+   * Store a device token for push notifications
+   */
+  async storeDeviceToken(
+    userId: string,
+    token: string,
+    platform: PlatformType,
+    walletId: string,
+    deviceId?: string,
+  ): Promise<DeviceToken> {
+    try {
+      // Check if token already exists
+      let deviceToken = await this.deviceTokenRepo.findOne({
+        where: { token },
+      });
+
+      if (deviceToken) {
+        // Update existing token
+        deviceToken.userId = userId;
+        deviceToken.platform = platform;
+        deviceToken.walletId = walletId;
+        if (deviceId) deviceToken.deviceId = deviceId;
+      } else {
+        // Create new token
+        deviceToken = this.deviceTokenRepo.create({
+          userId,
+          token,
+          platform,
+          walletId,
+          deviceId,
+        });
+      }
+
+      await this.deviceTokenRepo.save(deviceToken);
+      logger.info("Device token stored", { platform, walletId });
+      return deviceToken;
+    } catch (error) {
+      logger.error("Error storing device token", { error, walletId });
+      throw error;
+    }
+  }
+
+  /**
+   * Store a web push subscription
+   */
+  async storeWebPushSubscription(
+    userId: string,
+    walletId: string,
+    subscription: PushSubscription,
+  ): Promise<WebPushSubscription> {
+    try {
+      // Check if subscription with the same endpoint exists
+      let webPushSub = await this.webPushRepo.findOne({
+        where: { endpoint: subscription.endpoint },
+      });
+
+      if (webPushSub) {
+        // Update existing subscription
+        webPushSub.userId = userId;
+        webPushSub.walletId = walletId;
+        webPushSub.auth = subscription.keys.auth;
+        webPushSub.p256dh = subscription.keys.p256dh;
+      } else {
+        // Create new subscription
+        webPushSub = this.webPushRepo.create({
+          userId,
+          walletId,
+          endpoint: subscription.endpoint,
+          auth: subscription.keys.auth,
+          p256dh: subscription.keys.p256dh,
+        });
+      }
+
+      await this.webPushRepo.save(webPushSub);
+      logger.info("Web Push subscription stored", { walletId });
+      return webPushSub;
+    } catch (error) {
+      logger.error("Error storing web push subscription", { error, walletId });
+      throw error;
+    }
+  }
+
+  /**
+   * Send notification to specific users
+   */
+  async sendNotification(
+    walletIds: string[],
+    payload: PushNotificationPayload,
+  ): Promise<void> {
+    try {
+      // Get all device tokens for these users
+      const deviceTokens = await this.deviceTokenRepo.find({
+        where: { walletId: In(walletIds) },
+      });
+
+      // Get all web push subscriptions for these users
+      const webPushSubs = await this.webPushRepo.find({
+        where: { walletId: In(walletIds) },
+      });
+
+      const notificationPromises: Promise<unknown>[] = [];
+
+      // Send Firebase notifications (FCM)
+      const fcmTokens = deviceTokens
+        .filter((dt) =>
+          [
+            PlatformType.ANDROID,
+            PlatformType.IOS,
+            PlatformType.WEB_FCM,
+          ].includes(dt.platform),
+        )
+        .map((dt) => dt.token);
+
+      if (fcmTokens.length > 0 && admin.apps.length > 0) {
+        fcmTokens.forEach((token) => {
+          notificationPromises.push(
+            admin.messaging().send({
+              token,
+              android: { priority: "high" }, // High priority for Android
+              apns: {
+                headers: {
+                  "apns-priority": "10", // High priority for iOS
+                },
+                payload: {
+                  aps: {
+                    contentAvailable: true, // Background notification for iOS
+                  },
+                },
+              },
+              // notification: {
+              //   title: payload.title,
+              //   body: payload.body,
+              // },
+              data: this.serializeData(payload.data || {}),
+            }),
+          );
+        });
+      }
+
+      // Send Web Push notifications
+      webPushSubs.forEach((sub) => {
+        const pushSubscription: PushSubscription = {
+          endpoint: sub.endpoint,
+          keys: {
+            auth: sub.auth,
+            p256dh: sub.p256dh,
+          },
+        };
+
+        notificationPromises.push(
+          webpush.sendNotification(
+            pushSubscription,
+            JSON.stringify({
+              title: payload.title,
+              body: payload.body,
+              ...payload.data,
+            }),
+          ),
+        );
+      });
+
+      // Wait for all notifications to be sent
+      if (notificationPromises.length > 0) {
+        logger.info("Sending notifications", {
+          walletIds,
+          notificationCount: notificationPromises.length,
+        });
+
+        const results = await Promise.allSettled(notificationPromises);
+
+        // Log any failures
+        results.forEach((result, index) => {
+          if (result.status === "rejected") {
+            logger.error("Failed to send notification", {
+              error: result.reason,
+              index,
+            });
+            // TODO: Handle specific error cases and delete tokens if necessary
+            // For example, if the error is an invalid token, you might want to remove it
+            // this.deviceTokenRepo.delete({ token: fcmTokens[index] });
+          } else {
+            logger.info("Notification sent successfully", {
+              index,
+              fcmToken: fcmTokens[index],
+              result: result.value,
+            });
+          }
+        });
+      } else {
+        logger.info("No notification channels available", {
+          walletIds,
+        });
+      }
+    } catch (error) {
+      logger.error("Error sending notifications", { error, walletIds });
+      throw error;
+    }
+  }
+
+  /**
+   * Serialize notification data to ensure all values are strings as required by Firebase
+   */
+  private serializeData(
+    data: Record<string, string | number | boolean | object | null>,
+  ): Record<string, string> {
+    const serialized: Record<string, string> = {};
+
+    for (const [key, value] of Object.entries(data)) {
+      serialized[key] =
+        typeof value === "string" ? value : JSON.stringify(value);
+    }
+
+    return serialized;
+  }
+}
+
+export const notificationService = new NotificationService();
+
+
+
+================================================
+FILE: src/types/custom.d.ts
+================================================
+// Type declarations for modules without type definitions
+
+// Environment variables
+declare namespace NodeJS {
+  interface ProcessEnv {
+    NODE_ENV: "development" | "production" | "test";
+    PORT: string;
+    LOG_LEVEL?: string;
+
+    // Database
+    DB_HOST: string;
+    DB_PORT: string;
+    DB_USERNAME: string;
+    DB_PASSWORD: string;
+    DB_NAME: string;
+
+    // Authentication
+    JWKS_URI: string;
+    ISSUER: string;
+    AUDIENCE: string;
+
+    // Push Notifications
+    VAPID_SUBJECT: string;
+    VAPID_PUBLIC_KEY: string;
+    VAPID_PRIVATE_KEY: string;
+    FIREBASE_SERVICE_ACCOUNT_PATH?: string;
+
+    // CORS Origins
+    ORIGIN_WEB_SDK: string;
+  }
+}
+
+
+
+================================================
+FILE: src/types/fireblocks.ts
+================================================
+import { TransactionResponse } from "fireblocks-sdk";
+
+export interface WebhookPayload {
+  createdAt: number;
+  data: TransactionResponse | EWBalancePayload | UnknownPayload;
+  eventType: string;
+  id: string;
+  resourceId: string;
+  workspaceId: string;
+}
+
+export interface EWBalancePayload {
+  walletId: string;
+  accountId?: string;
+  assetId?: string;
+  total?: string;
+  pending?: string;
+  staked?: string;
+  frozen?: string;
+  lockedAmount?: string;
+  blockHeight?: string;
+  blockHash?: string;
+  [key: string]: unknown;
+}
+
+export interface UnknownPayload {
+  [key: string]: unknown;
+}
+
+// Push notification types
+export interface PushNotificationPayload {
+  title: string;
+  body: string;
+  data?: Record<string, string | number | boolean | object | null>; // JSON-serializable values
+}
+
+
+
+================================================
+FILE: src/types/express/index.d.ts
+================================================
+import { JWTPayload } from "jose";
+
+declare global {
+  namespace Express {
+    interface Request {
+      auth?: {
+        payload: JWTPayload;
+        protectedHeader: {
+          alg: string;
+          kid: string;
+        };
+      };
+      rawBody?: Buffer;
+      requestId?: string;
+    }
+  }
+}
+
+export {};
+
+
+
+================================================
+FILE: src/util/env.ts
+================================================
+export function getEnvOrThrow(name: string): string {
+  const value = process.env[name];
+  if (value === undefined || value === "") {
+    throw new Error(`Env Variable not found: '${name}'`);
+  }
+
+  return value;
+}
+
+export function getBooleanEnv(
+  name: string,
+  defaultValue: boolean = false,
+): boolean {
+  const value = process.env[name];
+
+  if (value === undefined || value === "") {
+    return defaultValue;
+  }
+
+  // Handle common truthy values
+  const normalizedValue = value.toLowerCase().trim();
+  return (
+    normalizedValue === "true" ||
+    normalizedValue === "1" ||
+    normalizedValue === "yes"
+  );
+}
+
+
+
+================================================
+FILE: src/util/fetch-all.ts
+================================================
+import { Web3PagedResponse } from "fireblocks-sdk";
+
+interface IPage {
+  pageCursor?: string;
+  pageSize?: number;
+}
+
+type TFetcher<T> = (page: IPage) => Promise<Web3PagedResponse<T>>;
+
+export async function* fetchPaged<T>(
+  fetcher: TFetcher<T>,
+  pageSize?: number,
+): AsyncGenerator<T, void, undefined> {
+  let cursor;
+  do {
+    const page = await fetcher({ pageCursor: cursor, pageSize });
+    if (page?.data) {
+      yield* page.data;
+    }
+    cursor = page?.paging?.next;
+  } while (cursor);
+}
+
+export async function fetchAll<T>(
+  fetcher: TFetcher<T>,
+  pageSize?: number,
+): Promise<Array<T>> {
+  const arr = [];
+  for await (const assets of fetchPaged(fetcher, pageSize)) {
+    arr.push(assets);
+  }
+  return arr;
+}
+
+
+
+================================================
+FILE: src/util/logger.ts
+================================================
+interface Logger {
+  info(message: string, context?: Record<string, unknown>): void;
+  error(message: string, context?: Record<string, unknown>): void;
+  warn(message: string, context?: Record<string, unknown>): void;
+  debug(message: string, context?: Record<string, unknown>): void;
+}
+
+type LogLevel = "info" | "error" | "warn" | "debug";
+type LogFn = (message: string, context?: Record<string, unknown>) => void;
+
+// Format context object for logging
+function formatContext(context?: Record<string, unknown>): string {
+  if (!context) return "";
+
+  return Object.entries(context)
+    .map(([key, value]) => {
+      if (value instanceof Error) {
+        return `${key}=${value.message}`;
+      }
+      if (Array.isArray(value)) {
+        return `${key}=[${value.join(",")}]`;
+      }
+      return `${key}=${typeof value === "object" && value !== null ? JSON.stringify(value) : String(value)}`;
+    })
+    .join(" ");
+}
+
+// Create logger functions
+function createLogger(level: LogLevel): LogFn {
+  return (message: string, context?: Record<string, unknown>): void => {
+    const timestamp = new Date().toISOString();
+    const contextStr = formatContext(context);
+    const logMessage = `${timestamp} ${level}: ${message} ${contextStr}`;
+
+    switch (level) {
+      case "error":
+        console.error(logMessage);
+        break;
+      case "warn":
+        console.warn(logMessage);
+        break;
+      case "debug":
+        console.debug(logMessage);
+        break;
+      default:
+        console.info(logMessage);
+    }
+  };
+}
+
+// Create the logger instance
+export const logger: Logger = {
+  info: createLogger("info"),
+  error: createLogger("error"),
+  warn: createLogger("warn"),
+  debug: createLogger("debug"),
+};
+
+
+
+================================================
+FILE: .husky/pre-commit
+================================================
+npx lint-staged
+
+

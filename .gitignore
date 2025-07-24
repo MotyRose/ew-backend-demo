@@ -51,3 +51,8 @@ openapi.spec.json
 # Secrets and credentials
 # Ignore Firebase service account credentials (keep sensitive keys out of version control)
 *firebase-service-account*
+
+# Railway and deployment
+.railway
+.env.railway.local
+railway-*.json
